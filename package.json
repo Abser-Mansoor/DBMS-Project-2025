@@ -1,0 +1,14 @@
+{
+    "name": "DBMS-PROJECT-2025",
+    "version": "1.0.0",
+    "scripts": {
+        "dev": "concurrently \"cd Backend && npm start\" \"cd Frontend && npm run dev\""
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
+    },
+    "dependencies": {
+        "react": "^19.1.0",
+        "vite": "^6.3.2"
+    }
+}
