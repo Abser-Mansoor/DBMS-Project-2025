@@ -1,43 +1,52 @@
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
-const BookRequest = require('../models/BookRequest');
-const Book = require('../models/Book');
-const User = require('../models/User');
 const { verifyToken, isAdmin } = require('../middleware/auth');
-const BorrowRequest = require('../models/BorrowRequest');
-const NewBookRequest = require('../models/NewBookRequest');
+const db = require('../db'); // Your initialized pg Pool
+const { body, validationResult } = require('express-validator');
 
-// Dashboard Statistics
+// ---------------- Dashboard Stats ----------------
 router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
   try {
-    const totalBooks = await Book.countDocuments();
-    const totalUsers = await User.countDocuments({ role: 'student' });
-    const totalRequests = await BookRequest.countDocuments();
-    const pendingRequests = await BookRequest.countDocuments({ status: 'pending' });
-    const borrowedBooks = await Book.countDocuments({ status: 'borrowed' });
-    const availableBooks = await Book.countDocuments({ status: 'available' });
-
-    // Get recent activities
-    const recentRequests = await BookRequest.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate('student', 'name')
-      .populate('book', 'title');
-
-    const recentBooks = await Book.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('title author status');
+    const [
+      { rows: totalBooksRows },
+      { rows: totalUsersRows },
+      { rows: totalRequestsRows },
+      { rows: pendingRequestsRows },
+      { rows: borrowedBooksRows },
+      { rows: availableBooksRows },
+      { rows: recentRequests },
+      { rows: recentBooks }
+    ] = await Promise.all([
+      db.query('SELECT COUNT(*) FROM books'),
+      db.query("SELECT COUNT(*) FROM users WHERE role='student'"),
+      db.query('SELECT COUNT(*) FROM book_requests'),
+      db.query("SELECT COUNT(*) FROM book_requests WHERE status='pending'"),
+      db.query("SELECT COUNT(*) FROM books WHERE available=0"),
+      db.query("SELECT COUNT(*) FROM books WHERE available>0"),
+      db.query(`
+        SELECT br._id, br.status, br.borrow_date, br.return_date, u.name AS student_name, b.title AS book_title
+        FROM book_requests br
+        JOIN users u ON br.student_id=u._id
+        JOIN books b ON br.book_id=b._id
+        ORDER BY br.created_at DESC
+        LIMIT 5
+      `),
+      db.query(`
+        SELECT _id, title, author, status
+        FROM books
+        ORDER BY created_at DESC
+        LIMIT 5
+      `)
+    ]);
 
     res.json({
       stats: {
-        totalBooks,
-        totalUsers,
-        totalRequests,
-        pendingRequests,
-        borrowedBooks,
-        availableBooks
+        totalBooks: parseInt(totalBooksRows[0].count),
+        totalUsers: parseInt(totalUsersRows[0].count),
+        totalRequests: parseInt(totalRequestsRows[0].count),
+        pendingRequests: parseInt(pendingRequestsRows[0].count),
+        borrowedBooks: parseInt(borrowedBooksRows[0].count),
+        availableBooks: parseInt(availableBooksRows[0].count),
       },
       recentActivity: {
         requests: recentRequests,
@@ -45,431 +54,163 @@ router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error);
+    console.error('Dashboard stats error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Book Management Routes
+// ---------------- Books ----------------
 router.get('/books', verifyToken, isAdmin, async (req, res) => {
   try {
     const { page = 1, search = '', filter = 'all' } = req.query;
     const limit = 10;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    let query = {};
+    let whereClauses = [];
+    let params = [];
+
     if (search) {
-      query = {
-        $or: [
-          { title: { $regex: search, $options: 'i' } },
-          { author: { $regex: search, $options: 'i' } },
-          { isbn: { $regex: search, $options: 'i' } }
-        ]
-      };
-    }
-    if (filter === 'available') {
-      query.available = { $gt: 0 };
-    } else if (filter === 'borrowed') {
-      query.available = 0;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      whereClauses.push('(title ILIKE $1 OR author ILIKE $2 OR isbn ILIKE $3)');
     }
 
-    const [books, total] = await Promise.all([
-      Book.find(query).skip(skip).limit(limit),
-      Book.countDocuments(query)
-    ]);
+    if (filter === 'available') whereClauses.push('available > 0');
+    if (filter === 'borrowed') whereClauses.push('available = 0');
+
+    const whereSQL = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    const { rows: books } = await db.query(
+      `SELECT * FROM books ${whereSQL} ORDER BY created_at DESC OFFSET $${params.length + 1} LIMIT $${params.length + 2}`,
+      [...params, offset, limit]
+    );
+
+    const { rows: totalRows } = await db.query(`SELECT COUNT(*) FROM books ${whereSQL}`, params);
+    const total = parseInt(totalRows[0].count);
 
     res.json({ books, total });
   } catch (error) {
-    console.error('Error in getAllBooks:', error);
-    res.status(500).json({ message: 'Error fetching books' });
+    console.error('Error fetching books:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.get('/books/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id);
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found' });
-    }
-    res.json(book);
+    const { rows } = await db.query('SELECT * FROM books WHERE _id=$1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ message: 'Book not found' });
+    res.json(rows[0]);
   } catch (error) {
-    console.error('Error in getBookById:', error);
-    res.status(500).json({ message: 'Error fetching book details' });
+    console.error('Error fetching book by ID:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.post('/books', verifyToken, isAdmin, async (req, res) => {
   try {
-    const bookData = { ...req.body, available: req.body.quantity };
-    const newBook = new Book(bookData);
-    await newBook.save();
-    res.status(201).json(newBook);
+    const { title, author, isbn, quantity } = req.body;
+    const { rows } = await db.query(
+      `INSERT INTO books (title, author, isbn, quantity, available) VALUES ($1,$2,$3,$4,$4) RETURNING *`,
+      [title, author, isbn, quantity]
+    );
+    res.status(201).json(rows[0]);
   } catch (error) {
-    console.error('Error in addBook:', error);
-    res.status(500).json({ message: 'Error adding book' });
+    console.error('Error adding book:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.put('/books/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id);
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found' });
-    }
+    const { rows: existingRows } = await db.query('SELECT * FROM books WHERE _id=$1', [req.params.id]);
+    if (!existingRows.length) return res.status(404).json({ message: 'Book not found' });
 
-    if (req.body.quantity !== undefined) {
-      const quantityDiff = req.body.quantity - book.quantity;
-      req.body.available = Math.min(book.available + quantityDiff, req.body.quantity);
-    }
+    const book = existingRows[0];
+    let { title, author, isbn, quantity } = req.body;
 
-    const updatedBook = await Book.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+    quantity = quantity ?? book.quantity;
+    const available = Math.min(book.available + (quantity - book.quantity), quantity);
+
+    const { rows } = await db.query(
+      `UPDATE books SET title=$1, author=$2, isbn=$3, quantity=$4, available=$5, updated_at=NOW() WHERE _id=$6 RETURNING *`,
+      [title ?? book.title, author ?? book.author, isbn ?? book.isbn, quantity, available, req.params.id]
     );
-    
-    res.json(updatedBook);
+
+    res.json(rows[0]);
   } catch (error) {
-    console.error('Error in updateBook:', error);
-    res.status(500).json({ message: 'Error updating book' });
+    console.error('Error updating book:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.delete('/books/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id);
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found' });
-    }
+    const { rows: bookRows } = await db.query('SELECT * FROM books WHERE _id=$1', [req.params.id]);
+    if (!bookRows.length) return res.status(404).json({ message: 'Book not found' });
 
-    // Check for active borrows
+    const book = bookRows[0];
+
+    // Check active borrows
     if (book.quantity !== book.available) {
-      return res.status(400).json({ 
-        message: 'Cannot delete book with active borrows',
-        activeLoans: book.quantity - book.available
-      });
+      return res.status(400).json({ message: 'Cannot delete book with active borrows' });
     }
 
-    // Check for pending borrow requests
-    const pendingRequests = await BorrowRequest.countDocuments({
-      book: book._id,
-      status: 'pending'
-    });
+    // Check pending borrow requests
+    const { rows: pendingRows } = await db.query(
+      'SELECT COUNT(*) FROM borrow_requests WHERE book_id=$1 AND status=$2',
+      [book._id, 'pending']
+    );
 
-    if (pendingRequests > 0) {
-      return res.status(400).json({
-        message: 'Cannot delete book with pending borrow requests',
-        pendingRequests
-      });
+    if (parseInt(pendingRows[0].count) > 0) {
+      return res.status(400).json({ message: 'Cannot delete book with pending borrow requests' });
     }
 
-    // Use deleteOne instead of deprecated remove()
-    await Book.deleteOne({ _id: book._id });
-
-    res.json({ 
-      message: 'Book deleted successfully',
-      deletedBook: {
-        title: book.title,
-        author: book.author,
-        isbn: book.isbn
-      }
-    });
+    await db.query('DELETE FROM books WHERE _id=$1', [book._id]);
+    res.json({ message: 'Book deleted successfully', deletedBook: book });
   } catch (error) {
-    console.error('Error in deleteBook:', error);
-    res.status(500).json({ 
-      message: 'Error deleting book',
-      error: error.message 
-    });
+    console.error('Error deleting book:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Book Request Routes
+// ---------------- Book Requests ----------------
 router.get('/requests', verifyToken, isAdmin, async (req, res) => {
   try {
     const { status = 'all', page = 1, limit = 10 } = req.query;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    let query = {};
+    let whereSQL = '';
+    let params = [];
     if (status !== 'all') {
-      query.status = status;
+      whereSQL = 'WHERE br.status=$1';
+      params.push(status);
     }
 
-    const [requests, total] = await Promise.all([
-      BookRequest.find(query)
-        .populate('student', 'name email')
-        .populate('book', 'title author isbn')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(Number(limit)),
-      BookRequest.countDocuments(query)
-    ]);
+    const { rows: requests } = await db.query(
+      `SELECT br.*, u.name AS student_name, u.email AS student_email, b.title AS book_title, b.author AS book_author
+       FROM book_requests br
+       JOIN users u ON br.student_id=u._id
+       JOIN books b ON br.book_id=b._id
+       ${whereSQL}
+       ORDER BY br.created_at DESC
+       OFFSET $${params.length + 1} LIMIT $${params.length + 2}`,
+      [...params, offset, parseInt(limit)]
+    );
+
+    const { rows: totalRows } = await db.query(
+      `SELECT COUNT(*) FROM book_requests br ${whereSQL}`,
+      params
+    );
 
     res.json({
       requests,
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page
+      total: parseInt(totalRows[0].count),
+      totalPages: Math.ceil(parseInt(totalRows[0].count) / limit),
+      currentPage: parseInt(page)
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching book requests:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Borrow Request Management
-router.get('/borrow-requests', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { status = 'pending' } = req.query;
-    const requests = await BorrowRequest.find({ status })
-      .populate('student', 'name email')
-      .populate('book', 'title author')
-      .sort({ createdAt: -1 });
-
-    const formattedRequests = requests.map(request => ({
-      _id: request._id,
-      book: request.book._id,
-      bookTitle: request.book.title,
-      student: request.student._id,
-      studentName: request.student.name,
-      studentEmail: request.student.email,
-      status: request.status,
-      requestDate: request.requestDate,
-      approvalDate: request.approvalDate,
-      returnDate: request.returnDate,
-      dueDate: request.dueDate,
-      actualReturnDate: request.actualReturnDate,
-      fine: request.fine
-    }));
-
-    res.json(formattedRequests);
-  } catch (error) {
-    console.error('Error in getBorrowRequests:', error);
-    res.status(500).json({ message: 'Error fetching borrow requests' });
-  }
-});
-
-router.put('/borrow-requests/:id', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { status } = req.body;
-    const request = await BorrowRequest.findById(req.params.id)
-      .populate('student', 'name email')
-      .populate('book', 'title author');
-    
-    if (!request) {
-      return res.status(404).json({ message: 'Request not found' });
-    }
-
-    if (status === 'approved') {
-      const book = await Book.findById(request.book._id);
-      if (!book) {
-        return res.status(404).json({ message: 'Book not found' });
-      }
-      if (book.available <= 0) {
-        return res.status(400).json({ message: 'Book is not available for borrowing' });
-      }
-      book.available -= 1;
-      await book.save();
-    }
-
-    request.status = status;
-    request.processedDate = new Date();
-    await request.save();
-
-    // Format the response to match the GET endpoint
-    const formattedResponse = {
-      _id: request._id,
-      book: request.book._id,
-      bookTitle: request.book.title,
-      student: request.student._id,
-      studentName: request.student.name,
-      status: request.status,
-      borrowDate: request.borrowDate,
-      returnDate: request.returnDate,
-      actualReturnDate: request.actualReturnDate,
-      fine: request.fine
-    };
-
-    res.json(formattedResponse);
-  } catch (error) {
-    console.error('Error in updateBorrowRequest:', error);
-    res.status(500).json({ message: 'Error updating borrow request' });
-  }
-});
-
-// New Book Request Management
-router.get('/new-book-requests', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { status = 'pending' } = req.query;
-    const requests = await NewBookRequest.find({ status });
-    res.json(requests);
-  } catch (error) {
-    console.error('Error in getNewBookRequests:', error);
-    res.status(500).json({ message: 'Error fetching new book requests' });
-  }
-});
-
-router.put('/new-book-requests/:id', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { status } = req.body;
-    const request = await NewBookRequest.findByIdAndUpdate(
-      req.params.id,
-      { status, processedDate: new Date() },
-      { new: true }
-    );
-    
-    if (!request) {
-      return res.status(404).json({ message: 'Request not found' });
-    }
-    
-    res.json(request);
-  } catch (error) {
-    console.error('Error in updateNewBookRequest:', error);
-    res.status(500).json({ message: 'Error updating new book request' });
-  }
-});
-
-// User Management
-router.get('/users', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { page = 1, limit = 10, search = '' } = req.query;
-    const skip = (page - 1) * limit;
-
-    let query = { role: 'student' };
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    const [users, total] = await Promise.all([
-      User.find(query)
-        .select('-password')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(Number(limit)),
-      User.countDocuments(query)
-    ]);
-
-    res.json({
-      users,
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// User Status Management
-router.put('/users/:id/status', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const { status } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).select('-password');
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json(user);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Return Book Management
-router.post('/return-book/:requestId', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const request = await BookRequest.findById(req.params.requestId)
-      .populate('book');
-
-    if (!request) {
-      return res.status(404).json({ message: 'Request not found' });
-    }
-
-    if (request.status !== 'approved') {
-      return res.status(400).json({ message: 'Book is not borrowed' });
-    }
-
-    // Update book availability
-    const book = await Book.findById(request.book._id);
-    book.available += 1;
-    await book.save();
-
-    // Update request status
-    request.status = 'returned';
-    request.returnDate = new Date();
-    await request.save();
-
-    res.json(request);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Add return book endpoint
-router.post('/borrow-requests/:id/return', verifyToken, isAdmin, async (req, res) => {
-  try {
-    const request = await BorrowRequest.findById(req.params.id)
-      .populate('book')
-      .populate('student', 'name');
-
-    if (!request) {
-      return res.status(404).json({ message: 'Request not found' });
-    }
-
-    if (request.status !== 'approved') {
-      return res.status(400).json({ message: 'Book is not currently borrowed' });
-    }
-
-    // Calculate fine if returned late
-    const returnDate = new Date(request.returnDate);
-    const actualReturnDate = new Date();
-    let fine = 0;
-
-    if (actualReturnDate > returnDate) {
-      const daysLate = Math.ceil((actualReturnDate - returnDate) / (1000 * 60 * 60 * 24));
-      fine = daysLate * 1; // $1 per day late
-    }
-
-    // Update book availability
-    const book = await Book.findById(request.book._id);
-    book.available += 1;
-    await book.save();
-
-    // Update request
-    request.status = 'returned';
-    request.actualReturnDate = actualReturnDate;
-    request.fine = fine;
-    await request.save();
-
-    // Format response
-    const formattedResponse = {
-      _id: request._id,
-      book: request.book._id,
-      bookTitle: request.book.title,
-      student: request.student._id,
-      studentName: request.student.name,
-      status: request.status,
-      borrowDate: request.borrowDate,
-      returnDate: request.returnDate,
-      actualReturnDate: request.actualReturnDate,
-      fine: request.fine
-    };
-
-    res.json(formattedResponse);
-  } catch (error) {
-    console.error('Error in returnBook:', error);
-    res.status(500).json({ message: 'Error returning book' });
-  }
-});
-
-module.exports = router; 
+module.exports = router;
