@@ -1,23 +1,14 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const mongoSanitize = require('express-mongo-sanitize');
+const { Pool } = require('pg');
 
 // Load environment variables
 dotenv.config();
 
-// Validate environment variables
-try {
-  const validateEnv = require('./config/validateEnv');
-  validateEnv();
-} catch (error) {
-  console.warn('Environment validation skipped:', error.message);
-}
-
-// Import routes
+// Import routes (PostgreSQL route files)
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const requestRoutes = require('./routes/requests');
@@ -37,69 +28,38 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100
 });
 app.use('/api/', limiter);
 
-// Body parsing and sanitization
+// Body parsing
 app.use(express.json());
-app.use(mongoSanitize());
 
-// MongoDB connection options
-const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  autoIndex: true,
-  serverSelectionTimeoutMS: 30000, // Increased timeout
-  socketTimeoutMS: 45000,
-  family: 4, // Force IPv4
-  retryWrites: true,
-  retryReads: true,
-  maxPoolSize: 10,
-  minPoolSize: 5,
-  connectTimeoutMS: 30000,
-};
+// PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000
+});
 
-// Connect to MongoDB with retry logic
-const connectWithRetry = async () => {
-  const maxRetries = 5;
-  let retries = 0;
-
-  while (retries < maxRetries) {
-    try {
-      await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
-      console.log('Connected to MongoDB successfully');
-      return;
-    } catch (err) {
-      retries++;
-      console.error(`MongoDB connection attempt ${retries} failed:`, err.message);
-      
-      if (retries === maxRetries) {
-        console.error('Max retries reached. Could not connect to MongoDB');
-        process.exit(1);
-      }
-      
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, retries), 10000)));
-    }
+// Test connection
+const testDbConnection = async () => {
+  try {
+    const client = await pool.connect();
+    console.log('Connected to PostgreSQL successfully');
+    client.release();
+  } catch (err) {
+    console.error('PostgreSQL connection failed:', err.message);
+    process.exit(1);
   }
 };
 
-// Initialize MongoDB connection
-connectWithRetry().catch(err => {
-  console.error('Initial MongoDB connection failed:', err);
-  process.exit(1);
-});
+testDbConnection();
 
-// Handle MongoDB connection events
-mongoose.connection.on('error', err => {
-  console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected. Attempting to reconnect...');
-  connectWithRetry();
-});
+// Make pool accessible to routes via app.locals
+app.locals.db = pool;
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -118,4 +78,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-}); 
+});

@@ -1,23 +1,13 @@
-const { Pool } = require('pg'); // For PostgreSQL
-// const mysql = require('mysql2/promise'); // For MySQL alternative
+const { Pool } = require('pg');
+const db = require('./db')
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const initializeDb = async () => {
-  let pool;
-  
   try {
-    // Create connection pool
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // PostgreSQL specific options
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 30000,
-    });
-
+    
     // Test connection
-    const client = await pool.connect();
+    const client = await db.connect();
     console.log('Connected to PostgreSQL database');
 
     // Initialize schema (tables) if they don't exist
@@ -41,12 +31,6 @@ const initializeDb = async () => {
       console.error('- Network connectivity');
     } else if (error.code === '28P01') {
       console.error('Authentication failed. Check username/password');
-    }
-    
-  } finally {
-    // Close the pool instead of single connection
-    if (pool) {
-      await pool.end();
     }
   }
 };
@@ -195,33 +179,4 @@ const initializeAdminUser = async (client) => {
   }
 };
 
-// Alternative MySQL version (commented)
-/*
-const initializeDbMySQL = async () => {
-  let connection;
-  
-  try {
-    connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      connectTimeout: 5000,
-    });
-
-    console.log('Connected to MySQL database');
-    await initializeSchemaMySQL(connection);
-    await initializeAdminUserMySQL(connection);
-    
-  } catch (error) {
-    console.error('MySQL initialization failed:', error.message);
-  } finally {
-    if (connection) {
-      await connection.end();
-    }
-  }
-};
-*/
-
-// Run the initialization
 initializeDb();

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken, isAdmin } = require('../middleware/auth');
-const db = require('../db'); // Your initialized pg Pool
+const db = require('../SQL/db'); // Your initialized pg Pool
 const { body, validationResult } = require('express-validator');
 
 // ---------------- Dashboard Stats ----------------

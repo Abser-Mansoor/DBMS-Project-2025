@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const client = require('../config/db'); // your PG client
+const client = require('../SQL/db'); // your PG client
 
 // Middleware to verify student role
 const isStudent = (req, res, next) => {
