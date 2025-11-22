@@ -7,54 +7,61 @@ const { body, validationResult } = require('express-validator');
 // ---------------- Dashboard Stats ----------------
 router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
   try {
+    // Get counts
     const [
       { rows: totalBooksRows },
-      { rows: totalUsersRows },
-      { rows: totalRequestsRows },
-      { rows: pendingRequestsRows },
-      { rows: borrowedBooksRows },
       { rows: availableBooksRows },
-      { rows: recentRequests },
-      { rows: recentBooks }
+      { rows: pendingBorrowRequestsRows },
+      { rows: pendingBookRequestsRows }
     ] = await Promise.all([
       db.query('SELECT COUNT(*) FROM books'),
-      db.query("SELECT COUNT(*) FROM users WHERE role='student'"),
-      db.query('SELECT COUNT(*) FROM book_requests'),
-      db.query("SELECT COUNT(*) FROM book_requests WHERE status='pending'"),
-      db.query("SELECT COUNT(*) FROM books WHERE available=0"),
-      db.query("SELECT COUNT(*) FROM books WHERE available>0"),
-      db.query(`
-        SELECT br._id, br.status, br.borrow_date, br.return_date, u.name AS student_name, b.title AS book_title
-        FROM book_requests br
-        JOIN users u ON br.student_id=u._id
-        JOIN books b ON br.book_id=b._id
-        ORDER BY br.created_at DESC
-        LIMIT 5
-      `),
-      db.query(`
-        SELECT _id, title, author, status
-        FROM books
-        ORDER BY created_at DESC
-        LIMIT 5
-      `)
+      db.query('SELECT COUNT(*) FROM books WHERE available > 0'),
+      db.query("SELECT COUNT(*) FROM borrow_requests WHERE status = 'pending'"),
+      db.query("SELECT COUNT(*) FROM book_requests WHERE status = 'pending'")
     ]);
+
+    // Get all borrow requests with student and book info
+    const { rows: borrowRequests } = await db.query(`
+      SELECT 
+        br._id, 
+        br.status, 
+        br.request_date, 
+        br.due_date, 
+        u.name AS student_name, 
+        b.title AS book_title
+      FROM borrow_requests br
+      JOIN users u ON br.student_id = u._id
+      JOIN books b ON br.book_id = b._id
+      ORDER BY br.request_date DESC
+    `);
+
+    // Get all book requests with requester info
+    const { rows: bookRequests } = await db.query(`
+      SELECT 
+        br._id, 
+        br.status, 
+        br.request_date, 
+        br.title AS book_title, 
+        br.author, 
+        br.genre, 
+        u.name AS requester_name
+      FROM book_requests br
+      JOIN users u ON br.student_id = u._id
+      ORDER BY br.request_date DESC
+    `);
 
     res.json({
       stats: {
         totalBooks: parseInt(totalBooksRows[0].count),
-        totalUsers: parseInt(totalUsersRows[0].count),
-        totalRequests: parseInt(totalRequestsRows[0].count),
-        pendingRequests: parseInt(pendingRequestsRows[0].count),
-        borrowedBooks: parseInt(borrowedBooksRows[0].count),
         availableBooks: parseInt(availableBooksRows[0].count),
+        pendingBorrowRequests: parseInt(pendingBorrowRequestsRows[0].count),
+        pendingBookRequests: parseInt(pendingBookRequestsRows[0].count)
       },
-      recentActivity: {
-        requests: recentRequests,
-        books: recentBooks
-      }
+      borrowRequests,
+      bookRequests
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
+    console.error('Error fetching admin dashboard stats:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

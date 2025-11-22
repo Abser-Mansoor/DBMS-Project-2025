@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { verifyToken } = require('../middleware/auth');
 const bcrypt = require('bcrypt');
+const db = require('../SQL/db');
 
 // Register a new user
 router.post('/register', [
@@ -23,22 +24,22 @@ router.post('/register', [
     const { name, email, password, role, rollNumber, employeeId } = req.body;
 
     // Check if user already exists
-    const [existinguser] = await db.query("SELECT * FROM users WHERE email = $1", [email]);
-    if (existinguser.length > 0) {
+    const existinguser = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (existinguser.rows.length > 0) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     // Check for duplicate roll number or employee ID
     if (role === 'student' && rollNumber) {
-      const [existingRollNumber] = await db.query('SELECT * from users WHERE roll_number = $1', [rollNumber]);
-      if (existingRollNumber.length > 0) {
+      const existingRollNumber = await db.query('SELECT * from users WHERE roll_number = $1', [rollNumber]);
+      if (existingRollNumber.rows.length > 0) {
         return res.status(400).json({ message: 'Roll number already registered' });
       }
     }
 
     if (role === 'admin' && employeeId) {
-      const [existingEmployeeId] = await db.query('SELECT * from users WHERE employee_id = $1', [employeeId]);
-      if (existingEmployeeId.length > 0) {
+      const existingEmployeeId = await db.query('SELECT * from users WHERE employee_id = $1', [employeeId]);
+      if (existingEmployeeId.rows.length > 0) {
         return res.status(400).json({ message: 'Employee ID already registered' });
       }
     }

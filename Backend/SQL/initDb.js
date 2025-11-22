@@ -1,7 +1,5 @@
-const { Pool } = require('pg');
 const db = require('./db')
 const bcrypt = require('bcrypt');
-require('dotenv').config();
 
 const initializeDb = async () => {
   try {
