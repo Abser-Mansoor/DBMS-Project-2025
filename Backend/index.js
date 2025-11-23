@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
+const morgan = require('morgan');
 
 // Load environment variables
 dotenv.config();
@@ -18,6 +19,7 @@ const generalRoutes = require('./routes/general');
 
 const app = express();
 
+app.use(morgan('dev'));
 // Security middleware
 app.use(helmet());
 app.use(cors({

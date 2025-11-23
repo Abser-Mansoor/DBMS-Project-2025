@@ -36,7 +36,7 @@ const initializeDb = async () => {
 const initializeSchema = async (client) => {
   try {
     // Create users table if it doesn't exist
-    const createUserQuery = `
+    const createUserQuery = `--sql
       CREATE TABLE IF NOT EXISTS users (
         _id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -53,7 +53,7 @@ const initializeSchema = async (client) => {
     await client.query(createUserQuery);
     console.log('Users table verified/created');
 
-    await client.query(`
+    await client.query(`--sql
       CREATE TABLE IF NOT EXISTS books (
         _id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -75,7 +75,7 @@ const initializeSchema = async (client) => {
       );
     `);
 
-    await client.query(`
+    await client.query(`--sql
       CREATE OR REPLACE FUNCTION set_available_to_quantity()
       RETURNS TRIGGER AS $$
       BEGIN
@@ -87,7 +87,7 @@ const initializeSchema = async (client) => {
       $$ LANGUAGE plpgsql;
     `);
 
-    await client.query(`
+    await client.query(`--sql
       CREATE TRIGGER books_available_trigger
       BEFORE INSERT ON books
       FOR EACH ROW
@@ -96,7 +96,7 @@ const initializeSchema = async (client) => {
 
     console.log('Books table verified/created');
     
-    await client.query(`
+    await client.query(`--sql
       CREATE TABLE IF NOT EXISTS borrow_requests (
         _id SERIAL PRIMARY KEY,
         book_id INT NOT NULL references books(_id),
@@ -112,7 +112,7 @@ const initializeSchema = async (client) => {
     
     console.log('Borrow_Requests table verified/created');
 
-    await client.query(`
+    await client.query(`--sql
       CREATE TABLE IF NOT EXISTS book_requests (
         _id SERIAL PRIMARY KEY,
         student_id INT NOT NULL references users(_id),
@@ -128,7 +128,7 @@ const initializeSchema = async (client) => {
 
       console.log('Book_Requests table verified/created');
     // Create index for better performance
-    await client.query(`
+    await client.query(`--sql
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
     `);
@@ -148,7 +148,7 @@ const initializeAdminUser = async (client) => {
     if (adminExists.rows.length === 0) {
       // Create default admin user
       // In production, you should hash the password!
-      const insertAdminQuery = `
+      const insertAdminQuery = `--sql
         INSERT INTO users (name, email, password, role, employee_id) 
         VALUES ($1, $2, $3, $4, $5)
       `;
