@@ -264,7 +264,7 @@ const Library: React.FC = () => {
                             {book.status === 'available' && (
                               <button
                                 onClick={() => handleBorrowBook(book._id)}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="text-black hover:text-blue-600 bg-blue-500"
                               >
                                 Borrow
                               </button>

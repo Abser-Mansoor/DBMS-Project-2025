@@ -6,13 +6,13 @@ export interface Book {
   category: string;
   quantity: number;
   available: number;
-  description?: string;
-  publishedYear?: string;
-  publisher?: string;
+  description: string;
+  published_year: string;
+  publisher: string;
   location: string;
-  status: 'available' | 'borrowed';
-  createdAt?: string;
-  updatedAt?: string;
+  status: 'available' | 'not available';
+  created_at: string;
+  updated_at: string;
 }
 
 export type SortOrder = 'asc' | 'desc';
@@ -29,7 +29,7 @@ export interface BookSort {
   order: 'asc' | 'desc';
 }
 
-export interface BookRequest {
+export interface BorrowRequest {
   _id: string;
   student: string;
   book: string;
@@ -52,7 +52,6 @@ export interface NewBookRequest {
   studentName: string;
   bookName: string;
   author: string;
-  genre: string;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   requestDate: string;

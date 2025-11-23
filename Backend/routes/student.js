@@ -4,19 +4,27 @@ const { body, validationResult } = require('express-validator');
 const db = require('../SQL/db');
 const { verifyToken } = require('../middleware/auth');
 
+// helper to get canonical user id
+const getUserId = (req) => {
+  return req.user?._id ?? req.user?.id ?? req.user?.user_id ?? req.user?.userId ?? null;
+};
+
 // ---------------------------
 // Get student's borrowed books
 // ---------------------------
 router.get('/my-books', verifyToken, async (req, res) => {
   try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const query = `
       SELECT br.*, b.title, b.author
       FROM borrow_requests br
-      JOIN books b ON br.book_id = b.id
+      JOIN books b ON br.book_id = b._id
       WHERE br.student_id = $1 AND br.status = 'approved'
       ORDER BY br.request_date DESC;
     `;
-    const result = await db.query(query, [req.user._id]);
+    const result = await db.query(query, [userId]);
 
     res.json(result.rows);
   } catch (error) {
@@ -30,18 +38,21 @@ router.get('/my-books', verifyToken, async (req, res) => {
 // ---------------------------
 router.get('/my-requests', verifyToken, async (req, res) => {
   try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const query = `
       SELECT br._id, br.book_id, b.title AS book_title,
              br.status, br.request_date, br.approval_date,
              br.return_date, br.due_date, br.actual_return_date,
              br.fine
       FROM borrow_requests br
-      JOIN books b ON br.book_id = b.id
+      JOIN books b ON br.book_id = b._id
       WHERE br.student_id = $1
       ORDER BY br.request_date DESC;
     `;
 
-    const result = await db.query(query, [req.user._id]);
+    const result = await db.query(query, [userId]);
 
     res.json(result.rows);
   } catch (error) {
@@ -59,6 +70,9 @@ router.post(
   [body('bookId').notEmpty().withMessage('Book ID is required')],
   async (req, res) => {
     try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
       const errors = validationResult(req);
       if (!errors.isEmpty())
         return res.status(400).json({ errors: errors.array() });
@@ -67,7 +81,7 @@ router.post(
 
       // Check book exists + available
       const bookQ = await db.query(
-        `SELECT * FROM books WHERE id = $1`,
+        `SELECT * FROM books WHERE _id = $1`,
         [bookId]
       );
 
@@ -89,7 +103,7 @@ router.post(
         AND book_id = $2
         AND status IN ('pending', 'approved');
       `,
-        [req.user._id, bookId]
+        [userId, bookId]
       );
 
       if (existQ.rows.length > 0) {
@@ -111,7 +125,7 @@ router.post(
         RETURNING *;
       `;
 
-      const newReq = await db.query(insertQuery, [req.user._id, bookId]);
+      const newReq = await db.query(insertQuery, [userId, bookId]);
 
       res.status(201).json(newReq.rows[0]);
     } catch (error) {
@@ -134,6 +148,9 @@ router.post(
   ],
   async (req, res) => {
     try {
+      const userId = getUserId(req);
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
       const errors = validationResult(req);
       if (!errors.isEmpty())
         return res.status(400).json({ errors: errors.array() });
@@ -148,7 +165,7 @@ router.post(
       `;
 
       const result = await db.query(query, [
-        req.user._id,
+        userId,
         title,
         author,
         reason,
@@ -167,12 +184,15 @@ router.post(
 // ---------------------------
 router.get('/new-book-requests', verifyToken, async (req, res) => {
   try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const query = `
       SELECT * FROM book_requests
       WHERE student_id = $1
       ORDER BY request_date DESC;
     `;
-    const result = await db.query(query, [req.user._id]);
+    const result = await db.query(query, [userId]);
 
     res.json(result.rows);
   } catch (error) {
@@ -243,13 +263,16 @@ router.get('/books/search', verifyToken, async (req, res) => {
 // ---------------------------
 router.post('/borrow-requests/:requestId/return', verifyToken, async (req, res) => {
   try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
     const query = `
-      SELECT br.*, b.id AS book_id
+      SELECT br.*, b._id AS book_id
       FROM borrow_requests br
-      JOIN books b ON br.book_id = b.id
+      JOIN books b ON br.book_id = b._id
       WHERE br._id = $1 AND br.student_id = $2 AND br.status = 'approved';
     `;
-    const result = await db.query(query, [req.params.requestId, req.user._id]);
+    const result = await db.query(query, [req.params.requestId, userId]);
 
     if (result.rows.length === 0)
       return res.status(404).json({ message: 'Borrow request not found or not approved' });
@@ -266,7 +289,7 @@ router.post('/borrow-requests/:requestId/return', verifyToken, async (req, res) 
     }
 
     // Update book availability
-    await db.query(`UPDATE books SET available = available + 1 WHERE id = $1`, [
+    await db.query(`UPDATE books SET available = available + 1 WHERE _id = $1`, [
       reqRow.book_id,
     ]);
 
