@@ -1,75 +1,70 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
-import { Book, BookRequest, NewBookRequest } from "../types/Book";
+import React, { useEffect, useState } from "react";
 import axiosInstance from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
+
+interface BorrowRequest {
+  _id: string;
+  student_name: string;
+  book_title: string;
+  request_date: string;
+  due_date: string | null;
+  status: string;
+}
+
+interface BookRequest {
+  _id: string;
+  requester_name: string;
+  book_title: string;
+  author: string;
+  request_date: string;
+  status: string;
+}
 
 interface DashboardStats {
   totalBooks: number;
   availableBooks: number;
-  borrowedBooks: number;
-  pendingRequests: number;
+  pendingBorrowRequests: number;
+  pendingBookRequests: number;
+  BorrowRequests?: BorrowRequest[];
+  BookRequests?: BookRequest[];
 }
 
 const Admin_Dashboard = () => {
   const { user } = useAuth();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [borrowRequests, setBorrowRequests] = useState<BookRequest[]>([]);
-  const [newBookRequests, setNewBookRequests] = useState<NewBookRequest[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalBooks: 0,
     availableBooks: 0,
-    borrowedBooks: 0,
-    pendingRequests: 0
+    pendingBorrowRequests: 0,
+    pendingBookRequests: 0,
+    BorrowRequests: [],
+    BookRequests: []
   });
+  const [borrowRequests, setBorrowRequests] = useState<BorrowRequest[]>([]);
+  const [bookRequests, setBookRequests] = useState<BookRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch dashboard statistics
-  const fetchStats = async () => {
+  const fetchDashboard = async () => {
     try {
-      const response = await axiosInstance.get('/admin/dashboard/stats');
+      const response = await axiosInstance.get("/admin/dashboard/stats");
       setStats(response.data.stats);
+      setBorrowRequests(response.data.stats.BorrowRequests || []);
+      setBookRequests(response.data.stats.BookRequests || []);
     } catch (error) {
-      console.error('Error fetching stats:', error);
-      toast.error('Failed to load dashboard statistics');
-    }
-  };
-
-  // Fetch borrow requests
-  const fetchBorrowRequests = async () => {
-    try {
-      const response = await axiosInstance.get('/admin/borrow-requests', {
-        params: { status: 'pending' }
-      });
-      setBorrowRequests(response.data);
-    } catch (error) {
-      console.error('Error fetching borrow requests:', error);
-      toast.error('Failed to load borrow requests');
-    }
-  };
-
-  // Fetch new book requests
-  const fetchNewBookRequests = async () => {
-    try {
-      const response = await axiosInstance.get('/admin/new-book-requests', {
-        params: { status: 'pending' }
-      });
-      setNewBookRequests(response.data);
-    } catch (error) {
-      console.error('Error fetching new book requests:', error);
-      toast.error('Failed to load new book requests');
+      // Optionally handle error
+    } finally {
+      setLoading(false);
     }
   };
 
   // Handle borrow request action
   const handleBorrowRequest = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      await axiosInstance.put(`/admin/borrow-requests/${requestId}`, {
+      await axiosInstance.put(`/admin/borrow/requests/${requestId}`, {
         status: action === 'approve' ? 'approved' : 'rejected'
       });
       toast.success(`Request ${action}ed successfully`);
-      fetchBorrowRequests(); // Refresh the list
-      fetchStats(); // Update stats
+      fetchDashboard(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating request:', error);
       toast.error(error.response?.data?.message || `Failed to ${action} request`);
@@ -79,41 +74,26 @@ const Admin_Dashboard = () => {
   // Handle new book request action
   const handleNewBookRequest = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      await axiosInstance.put(`/admin/new-book-requests/${requestId}`, {
+      await axiosInstance.put(`/admin/book/requests/${requestId}`, {
         status: action === 'approve' ? 'approved' : 'rejected'
       });
       toast.success(`Book request ${action}ed successfully`);
-      fetchNewBookRequests(); // Refresh the list
+      fetchDashboard(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating book request:', error);
       toast.error(error.response?.data?.message || `Failed to ${action} book request`);
     }
   };
 
-  // Load data when component mounts
   useEffect(() => {
-    const loadDashboard = async () => {
-      setLoading(true);
-      try {
-        await Promise.all([
-          fetchStats(),
-          fetchBorrowRequests(),
-          fetchNewBookRequests()
-        ]);
-      } catch (error) {
-        console.error('Error loading dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
+    fetchDashboard();
+    // eslint-disable-next-line
   }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center h-64">
+        <span className="text-lg font-semibold">Loading...</span>
       </div>
     );
   }
@@ -128,26 +108,26 @@ const Admin_Dashboard = () => {
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-blue-50 rounded-xl p-6 shadow-sm">
+            <div className="bg-blue-50 rounded-xl p-6 shadow-md shadow-blue-200">
               <h3 className="text-lg font-semibold text-blue-800 mb-2">Total Books</h3>
               <p className="text-3xl font-bold text-blue-600">{stats.totalBooks}</p>
             </div>
-            <div className="bg-green-50 rounded-xl p-6 shadow-sm">
+            <div className="bg-green-50 rounded-xl p-6 shadow-md shadow-blue-200">
               <h3 className="text-lg font-semibold text-green-800 mb-2">Available</h3>
               <p className="text-3xl font-bold text-green-600">{stats.availableBooks}</p>
             </div>
-            <div className="bg-yellow-50 rounded-xl p-6 shadow-sm">
+            <div className="bg-yellow-50 rounded-xl p-6 shadow-md shadow-blue-200">
               <h3 className="text-lg font-semibold text-yellow-800 mb-2">Borrowed</h3>
-              <p className="text-3xl font-bold text-yellow-600">{stats.borrowedBooks}</p>
+              <p className="text-3xl font-bold text-yellow-600">{borrowRequests.length}</p>
             </div>
-            <div className="bg-red-50 rounded-xl p-6 shadow-sm">
+            <div className="bg-red-50 rounded-xl p-6 shadow-md shadow-blue-200">
               <h3 className="text-lg font-semibold text-red-800 mb-2">Pending Requests</h3>
-              <p className="text-3xl font-bold text-red-600">{stats.pendingRequests}</p>
+              <p className="text-3xl font-bold text-red-600">{bookRequests.length}</p>
             </div>
           </div>
 
           {/* Borrow/Return Requests */}
-          <div className="mb-8">
+          <div className="mb-8 shadow-md shadow-blue-200">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">Borrow/Return Requests</h2>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -170,10 +150,10 @@ const Admin_Dashboard = () => {
                   ) : (
                     borrowRequests.map((request) => (
                       <tr key={request._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.studentName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.bookTitle}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.student_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.book_title}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {request.requestDate}
+                          {request.request_date}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
@@ -203,7 +183,7 @@ const Admin_Dashboard = () => {
           </div>
 
           {/* New Book Requests */}
-          <div className="mb-8">
+          <div className="mb-8 shadow-md shadow-blue-200">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">New Book Requests</h2>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -212,25 +192,23 @@ const Admin_Dashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{user?.name}</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Book</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Genre</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {newBookRequests.length === 0 ? (
+                  {bookRequests.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                         No pending book requests
                       </td>
                     </tr>
                   ) : (
-                    newBookRequests.map((request) => (
+                    bookRequests.map((request) => (
                       <tr key={request._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.studentName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.bookName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.requester_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.book_title}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.author}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.genre}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
                             Pending
@@ -279,4 +257,4 @@ const Admin_Dashboard = () => {
   );
 };
 
-export default Admin_Dashboard; 
+export default Admin_Dashboard;

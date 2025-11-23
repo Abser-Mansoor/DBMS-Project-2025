@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
 const { verifyToken } = require('../middleware/auth');
+const bcrypt = require('bcrypt');
+const db = require('../SQL/db');
 
 // Register a new user
 router.post('/register', [
@@ -23,37 +24,33 @@ router.post('/register', [
     const { name, email, password, role, rollNumber, employeeId } = req.body;
 
     // Check if user already exists
-    let user = await User.findOne({ email });
-    if (user) {
+    const existinguser = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (existinguser.rows.length > 0) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     // Check for duplicate roll number or employee ID
     if (role === 'student' && rollNumber) {
-      const existingRollNumber = await User.findOne({ rollNumber });
-      if (existingRollNumber) {
+      const existingRollNumber = await db.query('SELECT * from users WHERE roll_number = $1', [rollNumber]);
+      if (existingRollNumber.rows.length > 0) {
         return res.status(400).json({ message: 'Roll number already registered' });
       }
     }
 
     if (role === 'admin' && employeeId) {
-      const existingEmployeeId = await User.findOne({ employeeId });
-      if (existingEmployeeId) {
+      const existingEmployeeId = await db.query('SELECT * from users WHERE employee_id = $1', [employeeId]);
+      if (existingEmployeeId.rows.length > 0) {
         return res.status(400).json({ message: 'Employee ID already registered' });
       }
     }
 
     // Create new user
-    user = new User({
-      name,
-      email,
-      password,
-      role,
-      ...(role === 'student' && { rollNumber }),
-      ...(role === 'admin' && { employeeId })
-    });
-
-    await user.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const { rows } = await db.query(
+      "INSERT INTO users (name, email, password, role, roll_number, employee_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [name, email, hashedPassword, role, rollNumber, employeeId]
+    );
+    const user = rows[0];
 
     // Generate JWT token
     const token = jwt.sign(
@@ -96,19 +93,28 @@ router.post('/login', [
     const { email, password, role, rollNumber, employeeId } = req.body;
 
     // Find user by email and role
-    const user = await User.findOne({ 
-      email,
-      role,
-      ...(role === 'student' ? { rollNumber } : {}),
-      ...(role === 'admin' ? { employeeId } : {})
-    });
+    let sql = "SELECT * FROM users WHERE email = $1 AND role = $2";
+    let params = [email, role];
+
+    if (role === "student") {
+      sql += " AND roll_number = $3";
+      params.push(rollNumber);
+    }
+
+    if (role === "admin") {
+      sql += " AND employee_id = $3";
+      params.push(employeeId);
+    }
+
+    const{ rows } = await db.query(sql, params);
+    const user = rows[0];
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     // Check password
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -140,7 +146,8 @@ router.post('/login', [
 // Get current user
 router.get('/me', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const { rows } = await db.query("SELECT * FROM users WHERE _id = $1", [req.user.userId]);
+    const user = rows[0];
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

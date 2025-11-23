@@ -56,8 +56,8 @@ const Student_Signup = () => {
       // Show success message
       toast.success('Registration successful!');
       
-      // Redirect to student dashboard
-      navigate('/student-dashboard');
+      // Redirect to library page (student view)
+      navigate('/library');
     } catch (error: any) {
       console.error('Registration error:', error);
       toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
