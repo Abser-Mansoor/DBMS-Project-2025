@@ -69,19 +69,6 @@ const NewBookRequest: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-blue-900 mb-1" htmlFor="genre">Genre</label>
-              <input
-                type="text"
-                id="genre"
-                name="genre"
-                value={formData.genre}
-                onChange={handleChange}
-                className="w-full text-black px-4 py-2 bg-[#ecfaff] border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-blue-900 mb-1" htmlFor="reason">Reason for Request</label>
               <textarea
                 id="reason"

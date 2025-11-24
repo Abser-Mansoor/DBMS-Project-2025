@@ -1,5 +1,6 @@
 const db = require('./db')
 const bcrypt = require('bcrypt');
+nodemonconfig = require('../nodemon.json');
 
 const initializeDb = async () => {
   try {

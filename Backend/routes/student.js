@@ -44,8 +44,7 @@ router.get('/my-requests', verifyToken, async (req, res) => {
     const query = `
       SELECT br._id, br.book_id, b.title AS book_title,
              br.status, br.request_date, br.approval_date,
-             br.return_date, br.due_date, br.actual_return_date,
-             br.fine
+             br.return_date, br.due_date
       FROM borrow_requests br
       JOIN books b ON br.book_id = b._id
       WHERE br.student_id = $1

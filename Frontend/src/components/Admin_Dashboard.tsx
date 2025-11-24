@@ -7,7 +7,7 @@ interface BorrowRequest {
   _id: string;
   student_name: string;
   book_title: string;
-  request_date: string;
+  request_date: string | null;
   due_date: string | null;
   status: string;
 }
@@ -17,7 +17,7 @@ interface BookRequest {
   requester_name: string;
   book_title: string;
   author: string;
-  request_date: string;
+  request_date: string | null;
   status: string;
 }
 
@@ -26,6 +26,7 @@ interface DashboardStats {
   availableBooks: number;
   pendingBorrowRequests: number;
   pendingBookRequests: number;
+  // older shapes left out - arrays are returned at top-level now
   BorrowRequests?: BorrowRequest[];
   BookRequests?: BookRequest[];
 }
@@ -45,13 +46,43 @@ const Admin_Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = async () => {
+    setLoading(true);
     try {
       const response = await axiosInstance.get("/admin/dashboard/stats");
-      setStats(response.data.stats);
-      setBorrowRequests(response.data.stats.BorrowRequests || []);
-      setBookRequests(response.data.stats.BookRequests || []);
-    } catch (error) {
-      // Optionally handle error
+      const data = response.data || {};
+
+      // stats are returned under data.stats (counts)
+      const s = data.stats ?? {};
+      setStats({
+        totalBooks: Number(s.totalBooks ?? 0),
+        availableBooks: Number(s.availableBooks ?? 0),
+        pendingBorrowRequests: Number(s.pendingBorrowRequests ?? 0),
+        pendingBookRequests: Number(s.pendingBookRequests ?? 0),
+      });
+
+      // borrowRequests and bookRequests are returned at top-level (per backend)
+      // fallback to older shapes if needed (data.stats.BorrowRequests)
+      const brs: BorrowRequest[] =
+        Array.isArray(data.borrowRequests)
+          ? data.borrowRequests
+          : Array.isArray(data.stats?.BorrowRequests)
+          ? data.stats.BorrowRequests
+          : [];
+
+      const bks: BookRequest[] =
+        Array.isArray(data.bookRequests)
+          ? data.bookRequests
+          : Array.isArray(data.stats?.BookRequests)
+          ? data.stats.BookRequests
+          : [];
+
+      setBorrowRequests(brs);
+      setBookRequests(bks);
+
+      console.log("Dashboard data:", data);
+    } catch (error: any) {
+      console.error("Failed to fetch dashboard:", error);
+      toast.error(error?.response?.data?.message || "Failed to load dashboard stats");
     } finally {
       setLoading(false);
     }
@@ -64,7 +95,7 @@ const Admin_Dashboard = () => {
         status: action === 'approve' ? 'approved' : 'rejected'
       });
       toast.success(`Request ${action}ed successfully`);
-      fetchDashboard(); // Refresh the list
+      await fetchDashboard(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating request:', error);
       toast.error(error.response?.data?.message || `Failed to ${action} request`);
@@ -78,7 +109,7 @@ const Admin_Dashboard = () => {
         status: action === 'approve' ? 'approved' : 'rejected'
       });
       toast.success(`Book request ${action}ed successfully`);
-      fetchDashboard(); // Refresh the list
+      await fetchDashboard(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating book request:', error);
       toast.error(error.response?.data?.message || `Failed to ${action} book request`);
@@ -97,6 +128,8 @@ const Admin_Dashboard = () => {
       </div>
     );
   }
+
+  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString() : '-');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100">
@@ -153,11 +186,11 @@ const Admin_Dashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.student_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.book_title}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {request.request_date}
+                          {fmtDate(request.request_date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                            Pending
+                            {request.status ? (request.status.charAt(0).toUpperCase() + request.status.slice(1)) : 'Pending'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -189,7 +222,7 @@ const Admin_Dashboard = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{user?.name}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requester</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Book</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -211,7 +244,7 @@ const Admin_Dashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.author}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                            Pending
+                            {request.status ? (request.status.charAt(0).toUpperCase() + request.status.slice(1)) : 'Pending'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

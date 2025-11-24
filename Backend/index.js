@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { Pool } = require('pg');
 const morgan = require('morgan');
+nodemonconfig = require('./nodemon.json');
 
 // Load environment variables
 dotenv.config();
@@ -16,6 +17,7 @@ const requestRoutes = require('./routes/requests');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/student');
 const generalRoutes = require('./routes/general');
+const nodemon = require('nodemon');
 
 const app = express();
 
@@ -39,7 +41,7 @@ app.use(express.json());
 
 // PostgreSQL connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || nodemonconfig.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 10,
   idleTimeoutMillis: 30000,
