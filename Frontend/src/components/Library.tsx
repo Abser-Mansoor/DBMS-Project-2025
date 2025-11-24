@@ -90,12 +90,6 @@ const Library: React.FC = () => {
     
     try {
       await axiosInstance.post('/student/borrow-request', { bookId });
-      // Update the book's status in the local state
-      setBooks(prevBooks => 
-        prevBooks.map(book => 
-          book._id === bookId ? { ...book, status: 'borrowed' } : book
-        )
-      );
       toast.success('Borrow request submitted successfully!');
     } catch (error: any) {
       console.error('Error borrowing book:', error);
@@ -231,7 +225,7 @@ const Library: React.FC = () => {
                         Genre
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
-                        Status
+                        Publisher
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-blue-500 uppercase tracking-wider">
                         Available Copies
@@ -249,13 +243,7 @@ const Library: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900">{book.title}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900">{book.author}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900">{book.category}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            book.status === 'available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {book.status}
-                          </span>
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900">{book.publisher}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900">
                           {book.available} / {book.quantity}
                         </td>
