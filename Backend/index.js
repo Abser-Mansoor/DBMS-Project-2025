@@ -13,7 +13,7 @@ dotenv.config();
 // Import routes (PostgreSQL route files)
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
-const requestRoutes = require('./routes/requests');
+// const requestRoutes = require('./routes/requests');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/student');
 const generalRoutes = require('./routes/general');
@@ -75,7 +75,6 @@ app.locals.db = pool;
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
-app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api', generalRoutes);
