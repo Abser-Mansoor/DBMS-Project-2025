@@ -17,6 +17,9 @@ import StudentRequests from "./components/StudentRequests";
 import Abserboard from "./components/Admin_Dashboard";
 import Admin_AddBook from "./components/Admin_AddBook";
 import Admin_Books from "./components/Admin_Books";
+import Rooms from "./components/Rooms";
+import Admin_AddRoom from "./components/Admin_AddRoom";
+import NewRoomRequest from "./components/NewRoomRequest";
 
 const Navigation: React.FC = () => {
   const { user, userRole, logout } = useAuth();
@@ -58,12 +61,6 @@ const Navigation: React.FC = () => {
                   >
                     My Requests
                   </Link>
-                  <Link
-                    to="/new-book-request"
-                    className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
-                  >
-                    Request New Book
-                  </Link>
                 </>
               )}
               {userRole === 'admin' && (
@@ -88,6 +85,12 @@ const Navigation: React.FC = () => {
                   </Link>
                 </>
               )}
+                <Link
+                  to="/rooms"
+                  className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
+                  >
+                    Rooms
+                </Link>
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
@@ -187,6 +190,7 @@ const App = () => {
           <Route path="/admsignup" element={<Admin_Signup />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/rooms" element={<Rooms />} />
 
           {/* Protected Routes */}
           <Route
@@ -214,6 +218,14 @@ const App = () => {
             }
           />
           <Route
+            path="/new-room-request"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <NewRoomRequest />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
@@ -226,6 +238,14 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Admin_AddBook />
+                </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/add-room"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Admin_AddRoom />
                 </ProtectedRoute>
             }
           />

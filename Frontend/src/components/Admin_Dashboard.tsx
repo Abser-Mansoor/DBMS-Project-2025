@@ -21,14 +21,29 @@ interface BookRequest {
   status: string;
 }
 
+// added RoomRequest interface
+interface RoomRequest {
+  _id: string;
+  requester_name: string;
+  room_name: string;
+  date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  request_date?: string | null;
+  status: string;
+}
+
 interface DashboardStats {
   totalBooks: number;
   availableBooks: number;
   pendingBorrowRequests: number;
   pendingBookRequests: number;
+  // added pendingRoomRequests
+  pendingRoomRequests?: number;
   // older shapes left out - arrays are returned at top-level now
   BorrowRequests?: BorrowRequest[];
   BookRequests?: BookRequest[];
+  RoomRequests?: RoomRequest[];
 }
 
 const Admin_Dashboard = () => {
@@ -38,11 +53,15 @@ const Admin_Dashboard = () => {
     availableBooks: 0,
     pendingBorrowRequests: 0,
     pendingBookRequests: 0,
+    pendingRoomRequests: 0,
     BorrowRequests: [],
-    BookRequests: []
+    BookRequests: [],
+    RoomRequests: []
   });
   const [borrowRequests, setBorrowRequests] = useState<BorrowRequest[]>([]);
   const [bookRequests, setBookRequests] = useState<BookRequest[]>([]);
+  // room requests state
+  const [roomRequests, setRoomRequests] = useState<RoomRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = async () => {
@@ -58,6 +77,7 @@ const Admin_Dashboard = () => {
         availableBooks: Number(s.availableBooks ?? 0),
         pendingBorrowRequests: Number(s.pendingBorrowRequests ?? 0),
         pendingBookRequests: Number(s.pendingBookRequests ?? 0),
+        pendingRoomRequests: Number(s.pendingRoomRequests ?? 0),
       });
 
       // borrowRequests and bookRequests are returned at top-level (per backend)
@@ -76,8 +96,17 @@ const Admin_Dashboard = () => {
           ? data.stats.BookRequests
           : [];
 
+      // roomRequests returned at top-level or under stats
+      const rrs: RoomRequest[] =
+        Array.isArray(data.roomRequests)
+          ? data.roomRequests
+          : Array.isArray(data.stats?.RoomRequests)
+          ? data.stats.RoomRequests
+          : [];
+
       setBorrowRequests(brs);
       setBookRequests(bks);
+      setRoomRequests(rrs);
 
       console.log("Dashboard data:", data);
     } catch (error: any) {
@@ -116,6 +145,20 @@ const Admin_Dashboard = () => {
     }
   };
 
+  // Handle room request action (approve/reject)
+  const handleRoomRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    try {
+      await axiosInstance.put(`/admin/room/requests/${requestId}`, {
+        status: action === 'approve' ? 'approved' : 'rejected'
+      });
+      toast.success(`Room request ${action}ed successfully`);
+      await fetchDashboard();
+    } catch (error: any) {
+      console.error('Error updating room request:', error);
+      toast.error(error.response?.data?.message || `Failed to ${action} room request`);
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
     // eslint-disable-next-line
@@ -140,7 +183,7 @@ const Admin_Dashboard = () => {
           </div>
 
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div className="bg-blue-50 rounded-xl p-6 shadow-md shadow-blue-200">
               <h3 className="text-lg font-semibold text-blue-800 mb-2">Total Books</h3>
               <p className="text-3xl font-bold text-blue-600">{stats.totalBooks}</p>
@@ -156,6 +199,10 @@ const Admin_Dashboard = () => {
             <div className="bg-red-50 rounded-xl p-6 shadow-md shadow-blue-200">
               <h3 className="text-lg font-semibold text-red-800 mb-2">New Book Requests</h3>
               <p className="text-3xl font-bold text-red-600">{bookRequests.length}</p>
+            </div>
+            <div className="bg-purple-50 rounded-xl p-6 shadow-md shadow-blue-200">
+              <h3 className="text-lg font-semibold text-purple-800 mb-2">Room Requests</h3>
+              <p className="text-3xl font-bold text-purple-600">{roomRequests.length}</p>
             </div>
           </div>
 
@@ -272,6 +319,72 @@ const Admin_Dashboard = () => {
                           </button>
                           <button
                             onClick={() => handleNewBookRequest(request._id, 'reject')}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Room Requests */}
+          <div className="mb-8 shadow-md shadow-blue-200">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Room Requests</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requester</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {roomRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                        No pending room requests
+                      </td>
+                    </tr>
+                  ) : (
+                    roomRequests.map((request) => (
+                      <tr key={request._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.requester_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.room_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fmtDate(request.date ?? request.request_date ?? null)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {request.start_time ? `${request.start_time}${request.end_time ? ` — ${request.end_time}` : ''}` : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            request.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : request.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : request.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {request.status ? (request.status.charAt(0).toUpperCase() + request.status.slice(1)) : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleRoomRequest(request._id, 'approve')}
+                            className="bg-blue-500 hover:bg-blue-600 mr-4"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRoomRequest(request._id, 'reject')}
                             className="bg-red-500 hover:bg-red-600"
                           >
                             Reject
