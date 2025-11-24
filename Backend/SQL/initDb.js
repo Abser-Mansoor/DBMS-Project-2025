@@ -1,23 +1,11 @@
-const { Pool } = require('pg'); // For PostgreSQL
-// const mysql = require('mysql2/promise'); // For MySQL alternative
+const db = require('./db')
 const bcrypt = require('bcrypt');
-require('dotenv').config();
 
 const initializeDb = async () => {
-  let pool;
-  
   try {
-    // Create connection pool
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // PostgreSQL specific options
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 30000,
-    });
-
+    
     // Test connection
-    const client = await pool.connect();
+    const client = await db.connect();
     console.log('Connected to PostgreSQL database');
 
     // Initialize schema (tables) if they don't exist
@@ -42,36 +30,105 @@ const initializeDb = async () => {
     } else if (error.code === '28P01') {
       console.error('Authentication failed. Check username/password');
     }
-    
-  } finally {
-    // Close the pool instead of single connection
-    if (pool) {
-      await pool.end();
-    }
   }
 };
 
 const initializeSchema = async (client) => {
   try {
     // Create users table if it doesn't exist
-    const createTableQuery = `
+    const createUserQuery = `--sql
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        _id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) NOT NULL DEFAULT 'user',
+        roll_number VARCHAR(50) UNIQUE,
         employee_id VARCHAR(50) UNIQUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
 
-    await client.query(createTableQuery);
+    await client.query(createUserQuery);
     console.log('Users table verified/created');
 
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS books (
+        _id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        isbn VARCHAR(50) UNIQUE NOT NULL,
+        category VARCHAR(50) NOT NULL CHECK (category IN (
+            'fiction', 'non-fiction', 'science', 'technology',
+            'history', 'philosophy', 'biography', 'other'
+        )),
+        quantity INT NOT NULL CHECK (quantity >= 1),
+        available INT NOT NULL,
+        description TEXT,
+        published_year VARCHAR(10),
+        publisher VARCHAR(100),
+        location VARCHAR(100) NOT NULL,
+        status VARCHAR(20) CHECK (status IN ('available', 'not available')) DEFAULT 'available',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`--sql
+      CREATE OR REPLACE FUNCTION set_available_to_quantity()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          IF NEW.available IS NULL THEN
+              NEW.available := NEW.quantity;
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await client.query(`--sql
+      CREATE TRIGGER books_available_trigger
+      BEFORE INSERT ON books
+      FOR EACH ROW
+      EXECUTE FUNCTION set_available_to_quantity();
+    `);
+
+    console.log('Books table verified/created');
+    
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS borrow_requests (
+        _id SERIAL PRIMARY KEY,
+        book_id INT NOT NULL references books(_id),
+        student_id INT NOT NULL references users(_id),
+        staff_id INT references users(_id),
+        status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'returned')) DEFAULT 'pending',
+        request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        approval_date TIMESTAMP WITH TIME ZONE,
+        due_date TIMESTAMP WITH TIME ZONE,
+        return_date TIMESTAMP WITH TIME ZONE
+      );
+      `)
+    
+    console.log('Borrow_Requests table verified/created');
+
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS book_requests (
+        _id SERIAL PRIMARY KEY,
+        student_id INT NOT NULL references users(_id),
+        staff_id INT references users(_id),
+        title VARCHAR(255) NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        reason TEXT,
+        status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'added')) DEFAULT 'pending',
+        request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        approval_date TIMESTAMP WITH TIME ZONE
+      );
+      `)
+
+      console.log('Book_Requests table verified/created');
     // Create index for better performance
-    await client.query(`
+    await client.query(`--sql
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
     `);
@@ -85,13 +142,13 @@ const initializeSchema = async (client) => {
 const initializeAdminUser = async (client) => {
   try {
     // Check if admin user exists
-    const checkAdminQuery = 'SELECT id FROM users WHERE role = $1 LIMIT 1';
+    const checkAdminQuery = 'SELECT _id FROM users WHERE role = $1 LIMIT 1';
     const adminExists = await client.query(checkAdminQuery, ['admin']);
 
     if (adminExists.rows.length === 0) {
       // Create default admin user
       // In production, you should hash the password!
-      const insertAdminQuery = `
+      const insertAdminQuery = `--sql
         INSERT INTO users (name, email, password, role, employee_id) 
         VALUES ($1, $2, $3, $4, $5)
       `;
@@ -99,7 +156,7 @@ const initializeAdminUser = async (client) => {
       await client.query(insertAdminQuery, [
         'Admin',
         'admin@library.com',
-        bcrypt.hash('admin123'),
+        await bcrypt.hash('admin123', 10),
         'admin',
         'ADMIN001'
       ]);
@@ -120,33 +177,4 @@ const initializeAdminUser = async (client) => {
   }
 };
 
-// Alternative MySQL version (commented)
-/*
-const initializeDbMySQL = async () => {
-  let connection;
-  
-  try {
-    connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      connectTimeout: 5000,
-    });
-
-    console.log('Connected to MySQL database');
-    await initializeSchemaMySQL(connection);
-    await initializeAdminUserMySQL(connection);
-    
-  } catch (error) {
-    console.error('MySQL initialization failed:', error.message);
-  } finally {
-    if (connection) {
-      await connection.end();
-    }
-  }
-};
-*/
-
-// Run the initialization
 initializeDb();

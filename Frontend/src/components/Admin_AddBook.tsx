@@ -34,8 +34,8 @@ const Admin_AddBook = () => {
 
   const validateISBN = async (isbn: string) => {
     try {
-      const response = await axiosInstance.get(`/admin/books/check-isbn/${isbn}`);
-      return response.data.exists;
+      const response = await axiosInstance.get(`/admin/books/${isbn}`);
+      return response.data ? true : false;
     } catch (error) {
       console.error('Error checking ISBN:', error);
       return false;
@@ -73,10 +73,10 @@ const Admin_AddBook = () => {
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-blue-800">Add New Book</h1>
             <button
-              onClick={() => navigate('/admin')}
-              className="text-blue-600 hover:text-blue-800"
+              onClick={() => navigate('/library')}
+              className="text-white hover:bg-red-600 bg-red-500"
             >
-              ← Back to Dashboard
+              ← Back to Library
             </button>
           </div>
 
@@ -246,7 +246,7 @@ const Admin_AddBook = () => {
               <button
                 type="button"
                 onClick={() => navigate('/admin')}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-white hover:bg-green-600 bg-green-500"
               >
                 ← Back to Dashboard
               </button>
