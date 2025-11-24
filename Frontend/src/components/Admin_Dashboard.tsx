@@ -150,11 +150,11 @@ const Admin_Dashboard = () => {
               <p className="text-3xl font-bold text-green-600">{stats.availableBooks}</p>
             </div>
             <div className="bg-yellow-50 rounded-xl p-6 shadow-md shadow-blue-200">
-              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Borrowed</h3>
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Borrow Requests</h3>
               <p className="text-3xl font-bold text-yellow-600">{borrowRequests.length}</p>
             </div>
             <div className="bg-red-50 rounded-xl p-6 shadow-md shadow-blue-200">
-              <h3 className="text-lg font-semibold text-red-800 mb-2">Pending Requests</h3>
+              <h3 className="text-lg font-semibold text-red-800 mb-2">New Book Requests</h3>
               <p className="text-3xl font-bold text-red-600">{bookRequests.length}</p>
             </div>
           </div>
@@ -189,20 +189,28 @@ const Admin_Dashboard = () => {
                           {fmtDate(request.request_date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            request.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : request.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : request.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
                             {request.status ? (request.status.charAt(0).toUpperCase() + request.status.slice(1)) : 'Pending'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleBorrowRequest(request._id, 'approve')}
-                            className="text-blue-600 hover:text-blue-900 mr-4"
+                            className="bg-blue-500 hover:bg-blue-600 mr-4"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => handleBorrowRequest(request._id, 'reject')}
-                            className="text-red-600 hover:text-red-900"
+                            className="bg-red-500 hover:bg-red-600"
                           >
                             Reject
                           </button>
@@ -243,20 +251,28 @@ const Admin_Dashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.book_title}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.author}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            request.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : request.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : request.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
                             {request.status ? (request.status.charAt(0).toUpperCase() + request.status.slice(1)) : 'Pending'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleNewBookRequest(request._id, 'approve')}
-                            className="text-blue-600 hover:text-blue-900 mr-4"
+                            className="bg-blue-500 hover:bg-blue-600 mr-4"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => handleNewBookRequest(request._id, 'reject')}
-                            className="text-red-600 hover:text-red-900"
+                            className="bg-red-500 hover:bg-red-600"
                           >
                             Reject
                           </button>

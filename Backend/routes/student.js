@@ -156,6 +156,17 @@ router.post(
 
       const { title, author, reason } = req.body;
 
+      const exists = await db.query(
+        `SELECT EXISTS (
+          SELECT 1 FROM book_requests
+          WHERE student_id = $1 AND title = $2 AND author = $3 AND status = 'pending'
+        ) AS exists;`,
+        [userId, title, author]
+      );
+      if (exists.rows.length > 0) {
+        return res.status(400).json({ message: 'You already have a pending request for this book' });
+      }
+
       const query = `
       INSERT INTO book_requests 
       (student_id, title, author, reason, status, request_date)

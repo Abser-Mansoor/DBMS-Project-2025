@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BookFormData } from '../types/Book';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axios';
+import { toast } from 'react-toastify';
 
 const NewBookRequest: React.FC = () => {
   const { user } = useAuth();
@@ -23,16 +24,22 @@ const NewBookRequest: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Send request to backend
-    await axiosInstance.post('/student/new-book-request' ,{
-      "title": formData.name,
-      "author": formData.author,
-      "reason": formData.reason,
-    });
-    console.log('Submitting new book request:', {
-      ...formData,
-      studentId: user?.id,
-      studentName: user?.name
-    });
+    try {
+      await axiosInstance.post('/student/new-book-request' ,{
+        "title": formData.name,
+        "author": formData.author,
+        "reason": formData.reason,
+      });
+      toast.success('Book request submitted successfully!');
+      console.log('Submitting new book request:', {
+        ...formData,
+        studentId: user?.id,
+        studentName: user?.name
+      });
+    } catch (error) {
+      console.error('Error submitting book request:', error);
+      toast.error('There is already a pending request for this book.');
+    }
   };
 
   return (

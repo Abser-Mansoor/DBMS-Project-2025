@@ -65,7 +65,7 @@ const Admin_Books = () => {
             <div className="flex space-x-4">
               <button
                 onClick={() => navigate('/admin')}
-                className="text-blue-500 hover:text-blue-700"
+                className="bg-red-500 hover:bg-red-600"
               >
                 ← Back to Dashboard
               </button>
@@ -100,7 +100,7 @@ const Admin_Books = () => {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-900"
+              className="px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-green-200 text-black"
             >
               <option value="all">All Books</option>
               <option value="available">Available</option>
@@ -167,7 +167,7 @@ const Admin_Books = () => {
                                   }
                                 }
                               }}
-                              className="text-red-500 hover:text-red-700"
+                              className="bg-red-500 hover:bg-red-600 text-black"
                             >
                               Delete
                             </button>
