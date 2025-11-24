@@ -4,24 +4,24 @@ nodemonconfig = require('../nodemon.json');
 
 const initializeDb = async () => {
   try {
-    
+
     // Test connection
     const client = await db.connect();
     console.log('Connected to PostgreSQL database');
 
     // Initialize schema (tables) if they don't exist
     await initializeSchema(client);
-    
+
     // Check if admin user exists and create if not
     await initializeAdminUser(client);
-    
+
     console.log('Database initialization completed successfully');
-    
+
     client.release();
-    
+
   } catch (error) {
     console.error('Database initialization failed:', error.message);
-    
+
     // Specific error handling for SQL
     if (error.code === 'ECONNREFUSED') {
       console.error('Could not connect to database. Please check:');
@@ -96,7 +96,7 @@ const initializeSchema = async (client) => {
     `);
 
     console.log('Books table verified/created');
-    
+
     await client.query(`--sql
       CREATE TABLE IF NOT EXISTS borrow_requests (
         _id SERIAL PRIMARY KEY,
@@ -110,7 +110,7 @@ const initializeSchema = async (client) => {
         return_date TIMESTAMP WITH TIME ZONE
       );
       `)
-    
+
     console.log('Borrow_Requests table verified/created');
 
     await client.query(`--sql
@@ -127,7 +127,40 @@ const initializeSchema = async (client) => {
       );
       `)
 
-      console.log('Book_Requests table verified/created');
+    console.log('Book_Requests table verified/created');
+
+    // Create rooms table
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS rooms (
+        _id SERIAL PRIMARY KEY,
+        room_name VARCHAR(100) NOT NULL,
+        capacity INT NOT NULL CHECK (capacity >= 1),
+        location VARCHAR(100) NOT NULL,
+        is_available BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    console.log('Rooms table verified/created');
+
+    // Create room_requests table
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS room_requests (
+        _id SERIAL PRIMARY KEY,
+        member_id INT NOT NULL REFERENCES users(_id),
+        room_id INT NOT NULL REFERENCES rooms(_id),
+        staff_id INT REFERENCES users(_id),
+        status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'cancelled')) DEFAULT 'pending',
+        date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    console.log('Room_Requests table verified/created');
     // Create index for better performance
     await client.query(`--sql
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -153,7 +186,7 @@ const initializeAdminUser = async (client) => {
         INSERT INTO users (name, email, password, role, employee_id) 
         VALUES ($1, $2, $3, $4, $5)
       `;
-      
+
       await client.query(insertAdminQuery, [
         'Admin',
         'admin@library.com',
@@ -161,12 +194,12 @@ const initializeAdminUser = async (client) => {
         'admin',
         'ADMIN001'
       ]);
-      
+
       console.log('Default admin user created successfully');
     } else {
       console.log('Admin user already exists');
     }
-    
+
   } catch (error) {
     // Handle unique constraint violations
     if (error.code === '23505') { // PostgreSQL unique violation

@@ -213,13 +213,17 @@ router.get('/new-book-requests', verifyToken, async (req, res) => {
 });
 
 // ---------------------------
-// Search books
+// Search books (FIXED: SQL Injection vulnerability)
 // ---------------------------
 router.get('/books/search', verifyToken, async (req, res) => {
   try {
     const { query, category, available, page = 1, limit = 10 } = req.query;
 
-    const offset = (page - 1) * limit;
+    // Validate and sanitize pagination parameters
+    const sanitizedLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 100);
+    const sanitizedPage = Math.max(parseInt(page) || 1, 1);
+    const offset = (sanitizedPage - 1) * sanitizedLimit;
+
     let where = [];
     let params = [];
     let idx = 1;
@@ -242,11 +246,15 @@ router.get('/books/search', verifyToken, async (req, res) => {
 
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+    // Add limit and offset as parameters (FIXED: prevents SQL injection)
+    params.push(sanitizedLimit);
+    params.push(offset);
+
     const booksQ = `
       SELECT * FROM books
       ${whereClause}
       ORDER BY created_at DESC
-      LIMIT ${limit} OFFSET ${offset};
+      LIMIT $${idx} OFFSET $${idx + 1};
     `;
 
     const countQ = `
@@ -255,13 +263,13 @@ router.get('/books/search', verifyToken, async (req, res) => {
     `;
 
     const books = await db.query(booksQ, params);
-    const total = await db.query(countQ, params);
+    const total = await db.query(countQ, params.slice(0, -2)); // Remove limit/offset for count
 
     res.json({
       books: books.rows,
       total: Number(total.rows[0].count),
-      totalPages: Math.ceil(total.rows[0].count / limit),
-      currentPage: Number(page),
+      totalPages: Math.ceil(total.rows[0].count / sanitizedLimit),
+      currentPage: sanitizedPage,
     });
   } catch (error) {
     console.error(error);

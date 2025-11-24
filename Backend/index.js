@@ -10,13 +10,20 @@ nodemonconfig = require('./nodemon.json');
 // Load environment variables
 dotenv.config();
 
+// Validate critical environment variables
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET environment variable is not set');
+  console.error('Please set JWT_SECRET in your .env file');
+  process.exit(1);
+}
+
 // Import routes (PostgreSQL route files)
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
-// const requestRoutes = require('./routes/requests');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/student');
 const generalRoutes = require('./routes/general');
+const roomRoutes = require('./routes/rooms');
 const nodemon = require('nodemon');
 
 const app = express();
@@ -77,6 +84,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/rooms', roomRoutes);
 app.use('/api', generalRoutes);
 
 // Error handling middleware
