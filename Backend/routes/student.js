@@ -163,7 +163,8 @@ router.post(
         ) AS exists;`,
         [userId, title, author]
       );
-      if (exists.rows.length > 0) {
+
+      if (exists.rows[0].exists) {
         return res.status(400).json({ message: 'You already have a pending request for this book' });
       }
 
