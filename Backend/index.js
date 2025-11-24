@@ -20,11 +20,21 @@ const generalRoutes = require('./routes/general');
 const app = express();
 
 app.use(morgan('dev'));
-// Security middleware
-app.use(helmet());
+
+// CORS must come first - use simple origin without trailing slash
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  origin: 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Body parsing must come before routes
+app.use(express.json());
+
+// Security middleware (configured to not interfere with CORS)
+app.use(helmet({
+  crossOriginResourcePolicy: false,
 }));
 
 // Rate limiting
@@ -34,12 +44,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Body parsing
-app.use(express.json());
-
 // PostgreSQL connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: 'postgresql://postgres:123@localhost:5432/librarydb?schema=public',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 10,
   idleTimeoutMillis: 30000,
