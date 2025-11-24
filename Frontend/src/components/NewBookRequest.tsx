@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BookFormData } from '../types/Book';
 import { useAuth } from '../context/AuthContext';
+import axiosInstance from '../api/axios';
 
 const NewBookRequest: React.FC = () => {
   const { user } = useAuth();
@@ -19,9 +20,14 @@ const NewBookRequest: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Send request to backend
+    await axiosInstance.post('/student/new-book-request' ,{
+      "title": formData.name,
+      "author": formData.author,
+      "reason": formData.reason,
+    });
     console.log('Submitting new book request:', {
       ...formData,
       studentId: user?.id,
