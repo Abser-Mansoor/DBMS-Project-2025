@@ -3,6 +3,11 @@ const router = express.Router();
 const { verifyToken, isAdmin } = require('../middleware/auth');
 const db = require('../SQL/db'); // Your initialized pg Pool
 const { body, validationResult } = require('express-validator');
+const { get } = require('mongoose');
+
+const getUserId = (req) => {
+  return req.user?._id ?? req.user?.id ?? req.user?.user_id ?? req.user?.userId ?? null;
+};
 
 // ---------------- Dashboard Stats ----------------
 router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
@@ -231,12 +236,13 @@ router.get('/book/requests', verifyToken, isAdmin, async (req, res) => {
 
 router.put('/book/requests/:id', verifyToken, isAdmin, async (req, res) => {
   try {
+    const user = getUserId(req);
     const { status } = req.body;
     const { rows: existingRows } = await db.query('SELECT * FROM book_requests WHERE _id=$1', [req.params.id]);
     if (!existingRows.length) return res.status(404).json({ message: 'Book request not found' });
     const { rows } = await db.query(
-      'UPDATE book_requests SET status=$1, updated_at=NOW() WHERE _id=$2 RETURNING *',
-      [status, req.params.id]
+      'UPDATE book_requests SET staff_id = $1, status=$2, updated_at=NOW() WHERE _id=$3 RETURNING *',
+      [user, status, req.params.id]
     );
     res.json(rows[0]);
   } catch (error) {
@@ -288,12 +294,15 @@ router.get('/borrow/requests', verifyToken, isAdmin, async (req, res) => {
 
 router.put('/borrow/requests/:id', verifyToken, isAdmin, async (req, res) => {
   try {
+    const user = getUserId(req);
     const { status } = req.body;
     const { rows: existingRows } = await db.query('SELECT * FROM borrow_requests WHERE _id=$1', [req.params.id]);
     if (!existingRows.length) return res.status(404).json({ message: 'Borrow request not found' });
+    if (status == 'approved') await db.query(`UPDATE books SET available = available - 1 WHERE _id = $1`, [existingRows[0].book_id]);
+    else await db.query(`UPDATE books SET available = available + 1 WHERE _id = $1`, [existingRows[0].book_id]);
     const { rows } = await db.query(
-      'UPDATE borrow_requests SET status=$1, updated_at=NOW() WHERE _id=$2 RETURNING *',
-      [status, req.params.id]
+      'UPDATE borrow_requests SET staff_id=$1, status=$2, updated_at=NOW() WHERE _id=$3 RETURNING *',
+      [user,status, req.params.id]
     );
     res.json(rows[0]);
   } catch (error) {

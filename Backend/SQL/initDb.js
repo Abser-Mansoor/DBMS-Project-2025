@@ -65,7 +65,7 @@ const initializeSchema = async (client) => {
             'history', 'philosophy', 'biography', 'other'
         )),
         quantity INT NOT NULL CHECK (quantity >= 1),
-        available INT NOT NULL,
+        available INT NOT NULL CHECK (available >= 0 AND available <= quantity),
         description TEXT,
         published_year VARCHAR(10),
         publisher VARCHAR(100),
@@ -93,6 +93,29 @@ const initializeSchema = async (client) => {
       BEFORE INSERT ON books
       FOR EACH ROW
       EXECUTE FUNCTION set_available_to_quantity();
+    `);
+
+    // Ensure book status reflects availability: if available = 0 => 'not available', else 'available'
+    await client.query(`--sql
+      CREATE OR REPLACE FUNCTION set_book_status()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        IF NEW.available IS NOT NULL AND NEW.available = 0 THEN
+          NEW.status := 'not available';
+        ELSE
+          NEW.status := 'available';
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await client.query(`--sql
+      DROP TRIGGER IF EXISTS books_status_trigger ON books;
+      CREATE TRIGGER books_status_trigger
+      BEFORE INSERT OR UPDATE ON books
+      FOR EACH ROW
+      EXECUTE FUNCTION set_book_status();
     `);
 
     console.log('Books table verified/created');
