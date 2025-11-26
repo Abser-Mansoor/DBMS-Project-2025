@@ -22,6 +22,19 @@ const GameRequest: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [requestForm, setRequestForm] = useState<Record<string, GameRequestPayload>>({});
     const [openRequestFor, setOpenRequestFor] = useState<string | null>(null);
+    const [requestedGames, setRequestedGames] = useState<Set<string>>(new Set());
+
+    const fetchMyRequests = async () => {
+        try {
+            const res = await axiosInstance.get('/games/my-requests');
+            const requests = res.data || [];
+            // Extract game IDs from requests
+            const gameIds = new Set<string>(requests.map((req: any) => String(req.game_id ?? req.gameId ?? '')));
+            setRequestedGames(gameIds);
+        } catch (err) {
+            console.error('Error fetching my game requests', err);
+        }
+    };
 
     useEffect(() => {
         const fetchGames = async () => {
@@ -36,7 +49,10 @@ const GameRequest: React.FC = () => {
             }
         };
         fetchGames();
-    }, []);
+        if (userRole === 'student') {
+            fetchMyRequests();
+        }
+    }, [userRole]);
 
     const handleRequestChange = (gameId: string, field: keyof GameRequestPayload, value: string) => {
         setRequestForm(prev => ({
@@ -64,6 +80,8 @@ const GameRequest: React.FC = () => {
             });
             toast.success('Game request submitted');
             setOpenRequestFor(null);
+            // Refresh requested games list
+            await fetchMyRequests();
         } catch (err: any) {
             console.error('Error requesting game', err);
             toast.error(err?.response?.data?.message || 'Failed to submit request');
@@ -89,12 +107,18 @@ const GameRequest: React.FC = () => {
                                     </span>
                                 </div>
                                 {userRole === 'student' && game.is_available && (
-                                    <button
-                                        onClick={() => setOpenRequestFor(openRequestFor === game._id ? null : game._id)}
-                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                                    >
-                                        {openRequestFor === game._id ? 'Cancel' : 'Request'}
-                                    </button>
+                                    requestedGames.has(game._id) ? (
+                                        <span className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">
+                                            Requested
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={() => setOpenRequestFor(openRequestFor === game._id ? null : game._id)}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                                        >
+                                            {openRequestFor === game._id ? 'Cancel' : 'Request'}
+                                        </button>
+                                    )
                                 )}
                             </div>
 
