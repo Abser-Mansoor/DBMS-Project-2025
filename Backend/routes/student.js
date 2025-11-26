@@ -316,7 +316,7 @@ router.post('/borrow-requests/:requestId/return', verifyToken, async (req, res) 
     const updateQ = `
       UPDATE borrow_requests
       SET status = 'returned',
-          actual_return_date = CURRENT_TIMESTAMP,
+          return_date = CURRENT_TIMESTAMP,
           fine = $1
       WHERE _id = $2
       RETURNING *;

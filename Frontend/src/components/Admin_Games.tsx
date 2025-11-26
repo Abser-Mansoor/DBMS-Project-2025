@@ -124,7 +124,7 @@ const Admin_Games: React.FC = () => {
                             {games.map(game => (
                                 <div key={game._id} className="border rounded-lg p-4 flex justify-between items-center">
                                     <div>
-                                        <h3 className="font-semibold capitalize">{game.game_type}</h3>
+                                        <h3 className="font-semibold capitalize text-black">{game.game_type}</h3>
                                         <span className={`text-sm ${game.is_available ? 'text-green-600' : 'text-red-600'}`}>
                                             {game.is_available ? 'Available' : 'In Use'}
                                         </span>

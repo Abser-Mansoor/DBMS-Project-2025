@@ -130,6 +130,7 @@ const initializeSchema = async (client) => {
         student_id INT NOT NULL references users(_id),
         staff_id INT references users(_id),
         status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'returned')) DEFAULT 'pending',
+        fine NUMERIC(10,2) DEFAULT 0,
         request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE,
         due_date TIMESTAMP WITH TIME ZONE,
