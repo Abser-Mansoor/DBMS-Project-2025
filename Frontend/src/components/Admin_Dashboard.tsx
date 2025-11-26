@@ -26,7 +26,6 @@ interface RoomRequest {
   _id: string;
   requester_name: string;
   room_name: string;
-  date: string | null;
   start_time?: string | null;
   end_time?: string | null;
   request_date?: string | null;
@@ -359,7 +358,7 @@ const Admin_Dashboard = () => {
                       <tr key={request._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.requester_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.room_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fmtDate(request.date ?? request.request_date ?? null)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fmtDate(request.request_date ?? null)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {request.start_time ? `${request.start_time}${request.end_time ? ` — ${request.end_time}` : ''}` : '-'}
                         </td>

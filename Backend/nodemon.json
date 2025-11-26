@@ -1,5 +1,5 @@
 {
     "env": {
-        "DATABASE_URL": "postgresql://postgres:123@localhost:5432/librarydb?schema=public"
+        "DATABASE_URL": "postgresql://postgres:Abserman2@localhost:5432/librarydb?schema=public"
     }
 }

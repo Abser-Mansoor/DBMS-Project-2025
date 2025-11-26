@@ -238,7 +238,6 @@ const Rooms: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -255,14 +254,6 @@ const Rooms: React.FC = () => {
                               className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                             >
                               Request
-                            </button>
-                          )}
-                          {userRole === 'admin' && (
-                            <button
-                              onClick={() => navigate(`/admin/rooms/${room._id}`)}
-                              className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
-                            >
-                              Manage
                             </button>
                           )}
                         </td>
