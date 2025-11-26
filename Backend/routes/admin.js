@@ -17,12 +17,14 @@ router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
       { rows: totalBooksRows },
       { rows: availableBooksRows },
       { rows: pendingBorrowRequestsRows },
-      { rows: pendingBookRequestsRows }
+      { rows: pendingBookRequestsRows },
+      { rows: pendingRoomRequestsRows }
     ] = await Promise.all([
       db.query('SELECT COUNT(*) FROM books'),
       db.query('SELECT COUNT(*) FROM books WHERE available > 0'),
       db.query("SELECT COUNT(*) FROM borrow_requests WHERE status = 'pending'"),
-      db.query("SELECT COUNT(*) FROM book_requests WHERE status = 'pending'")
+      db.query("SELECT COUNT(*) FROM book_requests WHERE status = 'pending'"),
+      db.query("SELECT COUNT(*) FROM room_requests WHERE status = 'pending'")
     ]);
 
     // Get all borrow requests with student and book info
@@ -54,15 +56,34 @@ router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
       ORDER BY br.request_date DESC
     `);
 
+    // Get all room requests with requester and room info
+    const { rows: roomRequests } = await db.query(`
+      SELECT 
+        rr._id, 
+        rr.status, 
+        rr.date, 
+        rr.start_time, 
+        rr.end_time, 
+        rr.created_at AS request_date,
+        u.name AS requester_name, 
+        r.room_name
+      FROM room_requests rr
+      JOIN users u ON rr.member_id = u._id
+      JOIN rooms r ON rr.room_id = r._id
+      ORDER BY rr.date DESC, rr.start_time ASC
+    `);
+
     res.json({
       stats: {
         totalBooks: parseInt(totalBooksRows[0].count),
         availableBooks: parseInt(availableBooksRows[0].count),
         pendingBorrowRequests: parseInt(pendingBorrowRequestsRows[0].count),
-        pendingBookRequests: parseInt(pendingBookRequestsRows[0].count)
+        pendingBookRequests: parseInt(pendingBookRequestsRows[0].count),
+        pendingRoomRequests: parseInt(pendingRoomRequestsRows[0].count)
       },
       borrowRequests,
-      bookRequests
+      bookRequests,
+      roomRequests
     });
   } catch (error) {
     console.error('Error fetching admin dashboard stats:', error);
@@ -302,7 +323,7 @@ router.put('/borrow/requests/:id', verifyToken, isAdmin, async (req, res) => {
     else await db.query(`UPDATE books SET available = available + 1 WHERE _id = $1`, [existingRows[0].book_id]);
     const { rows } = await db.query(
       'UPDATE borrow_requests SET staff_id=$1, status=$2, updated_at=NOW() WHERE _id=$3 RETURNING *',
-      [user,status, req.params.id]
+      [user, status, req.params.id]
     );
     res.json(rows[0]);
   } catch (error) {
