@@ -9,7 +9,6 @@ interface Room {
   room_name: string;
   capacity: number;
   location: string;
-  description?: string | null;
   created_at?: string;
 }
 
@@ -155,21 +154,21 @@ const Rooms: React.FC = () => {
           <h1 className="text-3xl font-bold text-blue-800">Rooms</h1>
           <div className="flex gap-3">
             {userRole === 'student' && (
-            <div className="flex gap-4">
+              <div className="flex gap-4">
                 <button
-                onClick={navigateToMyRequests}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  onClick={navigateToMyRequests}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                 >
-                My Requests
+                  My Requests
                 </button>
 
                 <button
-                onClick={navigateToRequestRoom}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                  onClick={navigateToRequestRoom}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
                 >
-                Request Room
+                  Request Room
                 </button>
-            </div>
+              </div>
             )}
             {userRole === 'admin' && (
               <button
@@ -239,7 +238,6 @@ const Rooms: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -250,7 +248,6 @@ const Rooms: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{room.room_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{room.location}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{room.capacity}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{room.description ?? '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           {userRole === 'student' && (
                             <button

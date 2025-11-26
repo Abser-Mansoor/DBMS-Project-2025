@@ -7,10 +7,9 @@ const Admin_AddRoom: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    room_name: '',
+    roomName: '',
     capacity: 1,
     location: '',
-    description: '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -22,7 +21,7 @@ const Admin_AddRoom: React.FC = () => {
   };
 
   const validate = () => {
-    if (!formData.room_name.trim()) {
+    if (!formData.roomName.trim()) {
       toast.error('Room name is required');
       return false;
     }
@@ -43,11 +42,15 @@ const Admin_AddRoom: React.FC = () => {
 
     setLoading(true);
     try {
-      await axiosInstance.post('/admin/rooms', formData);
+      await axiosInstance.post('/rooms', {
+        roomName: formData.roomName,
+        capacity: formData.capacity,
+        location: formData.location
+      });
       toast.success('Room added successfully');
-      navigate('/admin');
+      navigate('/rooms');
     } catch (err: any) {
-      console.error('Error adding room:', err);
+      console.error('Error adding room', err);
       toast.error(err?.response?.data?.message || 'Failed to add room');
     } finally {
       setLoading(false);
@@ -55,8 +58,8 @@ const Admin_AddRoom: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-white pt-20">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-8">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-blue-800">Add New Room</h1>
@@ -71,13 +74,13 @@ const Admin_AddRoom: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-blue-900 mb-1" htmlFor="room_name">
+                <label className="block text-sm font-medium text-blue-900 mb-1" htmlFor="roomName">
                   Room Name*
                 </label>
                 <input
-                  id="room_name"
-                  name="room_name"
-                  value={formData.room_name}
+                  id="roomName"
+                  name="roomName"
+                  value={formData.roomName}
                   onChange={handleChange}
                   className="w-full text-black px-4 py-2 bg-[#ecfaff] border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
@@ -114,33 +117,6 @@ const Admin_AddRoom: React.FC = () => {
                   required
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-blue-900 mb-1" htmlFor="description">
-                  Short description
-                </label>
-                <input
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  className="w-full text-black px-4 py-2 bg-[#ecfaff] border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-blue-900 mb-1" htmlFor="notes">
-                Additional notes
-              </label>
-              <textarea
-                id="notes"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={4}
-                className="w-full text-black px-4 py-2 bg-[#ecfaff] border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
 
             <div className="flex justify-end space-x-4">
@@ -154,9 +130,8 @@ const Admin_AddRoom: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 ${
-                  loading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
               >
                 {loading ? 'Adding...' : 'Add Room'}
               </button>

@@ -18,6 +18,7 @@ const initializeDb = async () => {
     console.log('Database initialization completed successfully');
 
     client.release();
+    await db.end(); // Close the pool to exit the process
 
   } catch (error) {
     console.error('Database initialization failed:', error.message);
@@ -31,6 +32,7 @@ const initializeDb = async () => {
     } else if (error.code === '28P01') {
       console.error('Authentication failed. Check username/password');
     }
+    process.exit(1);
   }
 };
 
@@ -89,6 +91,7 @@ const initializeSchema = async (client) => {
     `);
 
     await client.query(`--sql
+      DROP TRIGGER IF EXISTS books_available_trigger ON books;
       CREATE TRIGGER books_available_trigger
       BEFORE INSERT ON books
       FOR EACH ROW
@@ -128,7 +131,7 @@ const initializeSchema = async (client) => {
         staff_id INT references users(_id),
         status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'returned')) DEFAULT 'pending',
         request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        approval_date TIMESTAMP WITH TIME ZONE,
+        updated_at TIMESTAMP WITH TIME ZONE,
         due_date TIMESTAMP WITH TIME ZONE,
         return_date TIMESTAMP WITH TIME ZONE
       );
@@ -146,7 +149,7 @@ const initializeSchema = async (client) => {
         reason TEXT,
         status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'added')) DEFAULT 'pending',
         request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        approval_date TIMESTAMP WITH TIME ZONE
+        updated_at TIMESTAMP WITH TIME ZONE
       );
       `)
 
@@ -184,6 +187,35 @@ const initializeSchema = async (client) => {
     `);
 
     console.log('Room_Requests table verified/created');
+
+    // Create board_games table
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS board_games (
+        _id SERIAL PRIMARY KEY,
+        game_type VARCHAR(50) NOT NULL CHECK (game_type IN ('ludo', 'chess', 'checkers')),
+        is_available BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Board_Games table verified/created');
+
+    // Create game_requests table
+    await client.query(`--sql
+      CREATE TABLE IF NOT EXISTS game_requests (
+        _id SERIAL PRIMARY KEY,
+        member_id INT NOT NULL REFERENCES users(_id),
+        staff_id INT REFERENCES users(_id),
+        game_id INT NOT NULL REFERENCES board_games(_id),
+        date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        status VARCHAR(20) NOT NULL CHECK(status IN ('pending', 'approved', 'rejected', 'cancelled')) DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('Game_Requests table verified/created');
     // Create index for better performance
     await client.query(`--sql
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

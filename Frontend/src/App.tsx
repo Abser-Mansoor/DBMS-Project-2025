@@ -20,6 +20,8 @@ import Admin_Books from "./components/Admin_Books";
 import Rooms from "./components/Rooms";
 import Admin_AddRoom from "./components/Admin_AddRoom";
 import NewRoomRequest from "./components/NewRoomRequest";
+import GameRequest from "./components/GameRequest";
+import Admin_Games from "./components/Admin_Games";
 
 const Navigation: React.FC = () => {
   const { user, userRole, logout } = useAuth();
@@ -61,6 +63,12 @@ const Navigation: React.FC = () => {
                   >
                     My Requests
                   </Link>
+                  <Link
+                    to="/games"
+                    className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
+                  >
+                    Games
+                  </Link>
                 </>
               )}
               {userRole === 'admin' && (
@@ -78,6 +86,12 @@ const Navigation: React.FC = () => {
                     Manage Books
                   </Link>
                   <Link
+                    to="/admin/games"
+                    className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
+                  >
+                    Manage Games
+                  </Link>
+                  <Link
                     to="/library"
                     className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
                   >
@@ -85,12 +99,12 @@ const Navigation: React.FC = () => {
                   </Link>
                 </>
               )}
-                <Link
-                  to="/rooms"
-                  className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
-                  >
-                    Rooms
-                </Link>
+              <Link
+                to="/rooms"
+                className="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500"
+              >
+                Rooms
+              </Link>
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
@@ -133,7 +147,7 @@ const App = () => {
             element={
               <div className="relative flex flex-col items-center justify-center min-h-screen pt-16">
                 {/* Background Image with Overlay */}
-                <div 
+                <div
                   className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                   style={{ backgroundImage: "url('/Main_Page_Img.jpg')" }}
                 >
@@ -146,11 +160,11 @@ const App = () => {
                   <div className="transform transition-all duration-300 hover:scale-105 p-8 bg-white/20 backdrop-blur-sm rounded-xl shadow-2xl border border-white/30 hover:border-white/50">
                     <h2 className="text-2xl font-bold mb-4 text-white">Explore The Library</h2>
                     <p className="text-blue-100 mb-6">Access our vast collection of books and resources</p>
-                    <Link 
-                      to="/login" 
+                    <Link
+                      to="/login"
                       className="inline-block bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 hover:text-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    > 
-                      Login 
+                    >
+                      Login
                     </Link>
                   </div>
 
@@ -158,10 +172,10 @@ const App = () => {
                   <div className="transform transition-all duration-300 hover:scale-105 p-8 bg-white/20 backdrop-blur-sm rounded-xl shadow-2xl border border-white/30 hover:border-white/50">
                     <h2 className="text-2xl font-bold mb-4 text-white">Our Services</h2>
                     <p className="text-blue-100 mb-6">Discover what we offer to our students and faculty</p>
-                    <Link 
-                      to="/about" 
+                    <Link
+                      to="/about"
                       className="inline-block bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 hover:text-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    > 
+                    >
                       Learn More
                     </Link>
                   </div>
@@ -170,10 +184,10 @@ const App = () => {
                   <div className="transform transition-all duration-300 hover:scale-105 p-8 bg-white/20 backdrop-blur-sm rounded-xl shadow-2xl border border-white/30 hover:border-white/50">
                     <h2 className="text-2xl font-bold mb-4 text-white">Contact Us</h2>
                     <p className="text-blue-100 mb-6">Get in touch with our support team</p>
-                    <Link 
-                      to="/contact" 
+                    <Link
+                      to="/contact"
                       className="inline-block bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 hover:text-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    > 
+                    >
                       Contact Now
                     </Link>
                   </div>
@@ -226,6 +240,14 @@ const App = () => {
             }
           />
           <Route
+            path="/games"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <GameRequest />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
@@ -238,7 +260,7 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Admin_AddBook />
-                </ProtectedRoute>
+              </ProtectedRoute>
             }
           />
           <Route
@@ -246,7 +268,7 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Admin_AddRoom />
-                </ProtectedRoute>
+              </ProtectedRoute>
             }
           />
           <Route
@@ -254,6 +276,14 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Admin_Books />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/games"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Admin_Games />
               </ProtectedRoute>
             }
           />

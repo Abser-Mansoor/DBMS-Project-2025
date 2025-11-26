@@ -2,7 +2,7 @@
     "name": "DBMS-PROJECT-2025",
     "version": "1.0.0",
     "scripts": {
-        "dev": "concurrently \"cd Backend && npm start\" \"cd Frontend && npm run dev\""
+        "dev": "concurrently \"cd Backend && npm start\" \"cd Frontend && npm run dev\" \"cd Backend/SQL && node initDb.js\""
     },
     "devDependencies": {
         "concurrently": "^9.1.2"

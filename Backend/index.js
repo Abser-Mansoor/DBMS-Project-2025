@@ -7,6 +7,20 @@ const { Pool } = require('pg');
 const morgan = require('morgan');
 nodemonconfig = require('./nodemon.json');
 
+// Import routes (PostgreSQL route files)
+const authRoutes = require('./routes/auth');
+const bookRoutes = require('./routes/books');
+const adminRoutes = require('./routes/admin');
+const studentRoutes = require('./routes/student');
+const generalRoutes = require('./routes/general');
+const roomRoutes = require('./routes/rooms');
+const gameRoutes = require('./routes/games');
+const nodemon = require('nodemon');
+
+const app = express();
+
+app.use(morgan('dev'));
+
 // Load environment variables
 dotenv.config();
 
@@ -16,19 +30,6 @@ if (!process.env.JWT_SECRET) {
   console.error('Please set JWT_SECRET in your .env file');
   process.exit(1);
 }
-
-// Import routes (PostgreSQL route files)
-const authRoutes = require('./routes/auth');
-const bookRoutes = require('./routes/books');
-const adminRoutes = require('./routes/admin');
-const studentRoutes = require('./routes/student');
-const generalRoutes = require('./routes/general');
-const roomRoutes = require('./routes/rooms');
-const nodemon = require('nodemon');
-
-const app = express();
-
-app.use(morgan('dev'));
 
 // CORS must come first - use simple origin without trailing slash
 app.use(cors({
@@ -85,6 +86,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/games', gameRoutes);
 app.use('/api', generalRoutes);
 
 // Error handling middleware
