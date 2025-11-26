@@ -204,7 +204,6 @@ const App = () => {
           <Route path="/admsignup" element={<Admin_Signup />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/rooms" element={<Rooms />} />
 
           {/* Protected Routes */}
           <Route
@@ -212,6 +211,14 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['student', 'admin']}>
                 <Library />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rooms"
+            element={
+              <ProtectedRoute allowedRoles={['student', 'admin']}>
+                <Rooms />
               </ProtectedRoute>
             }
           />

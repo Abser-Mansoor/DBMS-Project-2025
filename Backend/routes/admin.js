@@ -17,12 +17,14 @@ router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
       { rows: totalBooksRows },
       { rows: availableBooksRows },
       { rows: pendingBorrowRequestsRows },
-      { rows: pendingBookRequestsRows }
+      { rows: pendingBookRequestsRows },
+      { rows: pendingRoomRequestsRows }
     ] = await Promise.all([
       db.query('SELECT COUNT(*) FROM books'),
       db.query('SELECT COUNT(*) FROM books WHERE available > 0'),
       db.query("SELECT COUNT(*) FROM borrow_requests WHERE status = 'pending'"),
-      db.query("SELECT COUNT(*) FROM book_requests WHERE status = 'pending'")
+      db.query("SELECT COUNT(*) FROM book_requests WHERE status = 'pending'"),
+      db.query("SELECT COUNT(*) FROM room_requests WHERE status = 'pending'")
     ]);
 
     // Get all borrow requests with student and book info
@@ -54,15 +56,32 @@ router.get('/dashboard/stats', verifyToken, isAdmin, async (req, res) => {
       ORDER BY br.request_date DESC
     `);
 
+    const { rows: roomRequests } = await db.query(`
+      SELECT 
+        rr._id,
+        u.name AS requester_name,
+        r.room_name,
+        rr.start_time,
+        rr.end_time,
+        rr.created_at,
+        rr.status
+      FROM room_requests rr
+      JOIN users u ON rr.member_id = u._id
+      JOIN rooms r ON rr.room_id = r._id
+      ORDER BY rr.created_at DESC
+    `);
+
     res.json({
       stats: {
         totalBooks: parseInt(totalBooksRows[0].count),
         availableBooks: parseInt(availableBooksRows[0].count),
         pendingBorrowRequests: parseInt(pendingBorrowRequestsRows[0].count),
-        pendingBookRequests: parseInt(pendingBookRequestsRows[0].count)
+        pendingBookRequests: parseInt(pendingBookRequestsRows[0].count),
+        pendingRoomRequests: parseInt(pendingRoomRequestsRows[0].count)
       },
       borrowRequests,
-      bookRequests
+      bookRequests,
+      roomRequests
     });
   } catch (error) {
     console.error('Error fetching admin dashboard stats:', error);

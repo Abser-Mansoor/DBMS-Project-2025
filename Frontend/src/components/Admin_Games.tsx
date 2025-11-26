@@ -154,9 +154,9 @@ const Admin_Games: React.FC = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {requests.map(req => (
                                     <tr key={req._id}>
-                                        <td className="px-6 py-4 whitespace-nowrap capitalize">{req.game_id?.game_type || 'Unknown Game'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{new Date(req.date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{req.start_time} - {req.end_time}</td>
+                                        <td className="px-6 py-4 text-black whitespace-nowrap capitalize">{req.game_id?.game_type || 'Unknown Game'}</td>
+                                        <td className="px-6 py-4 text-black whitespace-nowrap">{new Date(req.date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-black whitespace-nowrap">{req.start_time} - {req.end_time}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 py-1 text-xs rounded-full ${req.status === 'approved' ? 'bg-green-100 text-green-800' :
                                                     req.status === 'rejected' ? 'bg-red-100 text-red-800' :
